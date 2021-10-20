@@ -107,6 +107,7 @@ priorbox = priorbox.to(device)
 
 with torch.no_grad():
     priors = priorbox.forward()
+    # priors = priors.to(device)
 
 
 def train():
