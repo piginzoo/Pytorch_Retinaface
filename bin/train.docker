@@ -25,6 +25,9 @@ elif [ "$2" == "test" ]; then
     echo "服务器上的Test模式"
     shift 2
     CMD="python test.py $@"
+elif [ "$2" == "debug" ]; then
+    echo "服务器上的Debug模式"
+    CMD="bin/train.sh $2"
 else
     echo "启动训练，模式：$2"
     CMD="bin/train.sh $2"
