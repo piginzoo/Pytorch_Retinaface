@@ -217,12 +217,32 @@ def decode(loc, priors, variances):
         variances: (list[float]) Variances of priorboxes
     Return:
         decoded bounding box predictions
+    box[t_x,t_y,t_w,t_h]
+
+    我理解，这个是根据预测结果，去修正anchor，
+    anchor是固定大小和宽度的框，
+    不同层的anchor，基本上都是之前，根据缩小的feature map反向推到原图上的位置（x，y），
+    而宽度是定死的：
+
+    Feature Pyramid
+    P2 (160 × 160 × 256)
+    P3 (80 × 80 × 256)
+    P4 (40 × 40 × 256)
+    P5 (20 × 20 × 256)
+    P6 (10 × 10 × 256)
+
+Anchor
+, 40.32, 50.80 64, 80.63, 101.59 128, 161.26, 203.19 256, 322.54, 406.37
     """
 
     boxes = torch.cat((
         priors[:, :2] + loc[:, :2] * variances[0] * priors[:, 2:],
         priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
+    # box是[x,y,w,h]
+    # 左上是[x-w/2, y-h/w]，右下角=左上角+[w,h]
+    # 前2个，左上角，x=x-w/2，y=y-h/2
     boxes[:, :2] -= boxes[:, 2:] / 2
+    # 后2个，右下角，x=x+w/2，y=y+h/2
     boxes[:, 2:] += boxes[:, :2]
     return boxes
 

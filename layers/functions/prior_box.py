@@ -4,7 +4,7 @@ import numpy as np
 from math import ceil
 
 
-class PriorBox(torch.nn.Module):
+class PriorBox(object):
     def __init__(self, cfg, image_size=None, phase='train'):
         super(PriorBox, self).__init__()
         self.min_sizes = cfg['min_sizes']
