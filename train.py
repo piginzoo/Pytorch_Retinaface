@@ -40,7 +40,7 @@ parser.add_argument('--gamma', default=0.1, type=float, help='Gamma update for S
 parser.add_argument('--save_folder', default='./model/', help='Location to save checkpoint models')
 
 args = parser.parse_args()
-logger.debug("参数：%r",args)
+logger.debug("参数：%r", args)
 
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
@@ -75,9 +75,10 @@ if args.debug:
     max_epoch = 1
     num_workers = 0
 
+device = get_device()
+
 net = RetinaFace(cfg=cfg)
-print("Printing net...")
-print(net)
+net = net.to(device)
 
 if args.resume_net is not None:
     print('Loading resume network...')
@@ -95,17 +96,17 @@ if args.resume_net is not None:
         new_state_dict[name] = v
     net.load_state_dict(new_state_dict)
 
-device = get_device()
-
 cudnn.benchmark = True
 
 optimizer = optim.SGD(net.parameters(), lr=initial_lr, momentum=momentum, weight_decay=weight_decay)
 criterion = MultiBoxLoss(num_classes, 0.35, True, 0, True, 7, 0.35, False)
+criterion = criterion.to(device)
 
 priorbox = PriorBox(cfg, image_size=(img_dim, img_dim))
+priorbox = priorbox.to(device)
+
 with torch.no_grad():
     priors = priorbox.forward()
-    priors = priors.to(device)
 
 
 def train():
@@ -113,7 +114,7 @@ def train():
     epoch = 0 + args.resume_epoch
     logger.debug('加载数据...')
 
-    dataset = WiderFaceDetection(train_dir,train_label, preproc(img_dim, rgb_mean))
+    dataset = WiderFaceDetection(train_dir, train_label, preproc(img_dim, rgb_mean))
 
     epoch_size = math.ceil(len(dataset) / batch_size)
     max_iter = max_epoch * epoch_size
@@ -153,7 +154,7 @@ def train():
         images, targets = next(batch_iterator)
         images = images.to(device)
         targets = [anno.to(device) for anno in targets]
-        logger.debug("加载了%d条数据",len(images))
+        logger.debug("加载了%d条数据", len(images))
 
         # forward
         out = net(images)
@@ -172,12 +173,12 @@ def train():
         eta = int(batch_time * (max_iter - iteration))
         logger.debug(
             'Epoch:{}/{} || Epochiter: {}/{} || Iter: {}/{} || Loc: {:.4f} Cla: {:.4f} Landm: {:.4f} || LR: {:.8f} || Batchtime: {:.4f} s || ETA: {}'
-            .format(epoch, max_epoch, (iteration % epoch_size) + 1,
-                    epoch_size, iteration + 1, max_iter, loss_l.item(), loss_c.item(), loss_landm.item(), lr,
-                    batch_time, str(datetime.timedelta(seconds=eta))))
+                .format(epoch, max_epoch, (iteration % epoch_size) + 1,
+                        epoch_size, iteration + 1, max_iter, loss_l.item(), loss_c.item(), loss_landm.item(), lr,
+                        batch_time, str(datetime.timedelta(seconds=eta))))
 
     torch.save(net.state_dict(), save_folder + cfg['name'] + '_Final.pth')
-    logger.debug("保存模型：%s",save_folder + cfg['name'] + '_Final.pth')
+    logger.debug("保存模型：%s", save_folder + cfg['name'] + '_Final.pth')
 
 
 def adjust_learning_rate(optimizer, gamma, epoch, step_index, iteration, epoch_size):
