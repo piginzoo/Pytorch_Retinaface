@@ -1,34 +1,25 @@
 #!/bin/bash
 
 if [ "$1" == "stop" ]; then
-    echo "关闭arcface训练容器..."
-    docker ps|grep arcface_train|awk '{print $1}'|xargs docker stop
+    echo "关闭Retina训练容器..."
+    docker ps|grep retina_train|awk '{print $1}'|xargs docker stop
     exit
 fi
 
 if [ "$2" == "" ]; then
-    echo "格式：bin/train.docker <GPU:0|1> <local|term|debug|mnist.ce|mnist.arcface|face>"
+    echo "格式：bin/train.docker <GPU:0|1> <debug|face>"
     exit
 fi
 
 PWD=`pwd`
-TRAIN_DIR=/app/data/face/CelebA/
-VAL_DIR=/app/data/face/lfw/
 GPU_OPT="--runtime=nvidia"
 DAEMON=""
 PROXY=""
 PROXY="--env http_proxy=http://172.17.0.1:8123 --env https_proxy=http://172.17.0.1:8123 --env HTTP_PROXY=http://172.17.0.1:8123 --env HTTPS_PROXY=http://172.17.0.1:8123"
 DEVICE=$1
 
-if [ "$2" == "local" ]; then
-    echo "本地（笔记本上，无显卡）调试模式 ..."
-    TRAIN_DIR=/Users/piginzoo/Downloads/train_images/人脸/CelebA
-    VAL_DIR=/Users/piginzoo/Downloads/train_images/人脸/lfw
-    GPU_OPT=""
-    CMD="bin/train.sh debug"
-    PROXY=""
-elif [ "$2" == "term" ]; then
-    echo "服务器上的Debug模式，只跑很少的epochs ..."
+if [ "$2" == "term" ]; then
+    echo "进入终端 ..."
     CMD="/bin/bash"
 elif [ "$2" == "test" ]; then
     echo "服务器上的Test模式"
@@ -44,13 +35,12 @@ FULL_CMD="
     docker run --rm
     -it $DAEMON $GPU_OPT
     -e NVIDIA_VISIBLE_DEVICES=$DEVICE $PROXY
-    -v $PWD:/root/arcface
-    -v $TRAIN_DIR:/root/arcface/data/train
-    -v $VAL_DIR:/root/arcface/data/val
+    -v $PWD:/root/retina
+    -v /app/data/face/widerface/:/root/retina/train_data
     -v /root/.cache:/root/.cache
-    --name arcface_train
+    --name retina_train
     --network host
-    --workdir /root/arcface
+    --workdir /root/retina
     arcface.img:v1
     $CMD
 "
