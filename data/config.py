@@ -29,7 +29,7 @@ cfg_re50 = {
     'loc_weight': 2.0,
     'gpu_train': True,
     'batch_size': 24,
-    'ngpu': 4,
+    'ngpu': 0,
     'epoch': 100,
     'decay1': 70,
     'decay2': 90,

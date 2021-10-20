@@ -1,0 +1,62 @@
+#!/bin/bash
+
+if [ "$1" == "stop" ]; then
+    echo "关闭arcface训练容器..."
+    docker ps|grep arcface_train|awk '{print $1}'|xargs docker stop
+    exit
+fi
+
+if [ "$2" == "" ]; then
+    echo "格式：bin/train.docker <GPU:0|1> <local|term|debug|mnist.ce|mnist.arcface|face>"
+    exit
+fi
+
+PWD=`pwd`
+TRAIN_DIR=/app/data/face/CelebA/
+VAL_DIR=/app/data/face/lfw/
+GPU_OPT="--runtime=nvidia"
+DAEMON=""
+PROXY=""
+PROXY="--env http_proxy=http://172.17.0.1:8123 --env https_proxy=http://172.17.0.1:8123 --env HTTP_PROXY=http://172.17.0.1:8123 --env HTTPS_PROXY=http://172.17.0.1:8123"
+DEVICE=$1
+
+if [ "$2" == "local" ]; then
+    echo "本地（笔记本上，无显卡）调试模式 ..."
+    TRAIN_DIR=/Users/piginzoo/Downloads/train_images/人脸/CelebA
+    VAL_DIR=/Users/piginzoo/Downloads/train_images/人脸/lfw
+    GPU_OPT=""
+    CMD="bin/train.sh debug"
+    PROXY=""
+elif [ "$2" == "term" ]; then
+    echo "服务器上的Debug模式，只跑很少的epochs ..."
+    CMD="/bin/bash"
+elif [ "$2" == "test" ]; then
+    echo "服务器上的Test模式"
+    shift 2
+    CMD="python test.py $@"
+else
+    echo "启动训练，模式：$2"
+    CMD="bin/train.sh $2"
+    DAEMON="-d"
+fi
+
+FULL_CMD="
+    docker run --rm
+    -it $DAEMON $GPU_OPT
+    -e NVIDIA_VISIBLE_DEVICES=$DEVICE $PROXY
+    -v $PWD:/root/arcface
+    -v $TRAIN_DIR:/root/arcface/data/train
+    -v $VAL_DIR:/root/arcface/data/val
+    -v /root/.cache:/root/.cache
+    --name arcface_train
+    --network host
+    --workdir /root/arcface
+    arcface.img:v1
+    $CMD
+"
+
+echo "启动命令："
+echo "==================================="
+echo "$FULL_CMD"
+echo "==================================="
+eval $FULL_CMD
