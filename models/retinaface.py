@@ -1,3 +1,5 @@
+import logging
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,9 +9,14 @@ from models.net import FPN as FPN
 from models.net import MobileNetV1 as MobileNetV1
 from models.net import SSH as SSH
 
+logger = logging.getLogger(__name__)
+
+DEBUG = True
+
 
 class ClassHead(nn.Module):
     def __init__(self, inchannels=512, num_anchors=3):
+        """你看默认的anchor是3，和论文中使用3个anchor( We set the scale step at 2^{1/3} ... )一致，但是传入的是2，靠，可耻的省了一个"""
         super(ClassHead, self).__init__()
         self.num_anchors = num_anchors
         self.conv1x1 = nn.Conv2d(inchannels, self.num_anchors * 2, kernel_size=(1, 1), stride=1, padding=0)
@@ -27,6 +34,7 @@ class BboxHead(nn.Module):
     """
 
     def __init__(self, inchannels=512, num_anchors=3):
+        """你看默认的anchor是3，和论文中使用3个anchor( We set the scale step at 2^{1/3} ... )一致，但是传入的是2，靠，可耻的省了一个"""
         super(BboxHead, self).__init__()
         self.conv1x1 = nn.Conv2d(inchannels, num_anchors * 4, kernel_size=(1, 1), stride=1, padding=0)
 
@@ -52,6 +60,7 @@ class BboxHead(nn.Module):
 
 class LandmarkHead(nn.Module):
     def __init__(self, inchannels=512, num_anchors=3):
+        """你看默认的anchor是3，和论文中使用3个anchor( We set the scale step at 2^{1/3} ... )一致，但是传入的是2，靠，可耻的省了一个"""
         super(LandmarkHead, self).__init__()
         self.conv1x1 = nn.Conv2d(inchannels, num_anchors * 10, kernel_size=(1, 1), stride=1, padding=0)
 
@@ -136,30 +145,54 @@ class RetinaFace(nn.Module):
         self.LandmarkHead = self._make_landmark_head(fpn_num=3, inchannels=cfg['out_channel'])
 
     def _make_class_head(self, fpn_num=3, inchannels=64, anchor_num=2):
+        """你看，使用的anchor是2个，和论文中使用3个anchor( We set the scale step at 2^{1/3} ... )省了一个"""
         classhead = nn.ModuleList()
         for i in range(fpn_num):
             classhead.append(ClassHead(inchannels, anchor_num))
         return classhead
 
     def _make_bbox_head(self, fpn_num=3, inchannels=64, anchor_num=2):
+        """你看，使用的anchor是2个，和论文中使用3个anchor( We set the scale step at 2^{1/3} ... )省了一个"""
         bboxhead = nn.ModuleList()
         for i in range(fpn_num):
             bboxhead.append(BboxHead(inchannels, anchor_num))
         return bboxhead
 
     def _make_landmark_head(self, fpn_num=3, inchannels=64, anchor_num=2):
+        """你看，使用的anchor是2个，和论文中使用3个anchor( We set the scale step at 2^{1/3} ... )省了一个"""
         landmarkhead = nn.ModuleList()
         for i in range(fpn_num):
             landmarkhead.append(LandmarkHead(inchannels, anchor_num))
         return landmarkhead
 
     def forward(self, inputs):
+        """
+        [网络调试] 网络输入inputs:      [1, 3, 840, 840]
+        [网络调试] backbone输出 1:     [1, 512, 105, 105]
+        [网络调试] backbone输出 2:     [1, 1024, 53, 53]
+        [网络调试] backbone输出 3:     [1, 2048, 27, 27]
+        [网络调试] FPN输出 0:          [1, 256, 105, 105]
+        [网络调试] FPN输出 1:          [1, 256, 53, 53]
+        [网络调试] FPN输出 2:          [1, 256, 27, 27]
+        [网络调试] SSH1输出:           [1, 256, 105, 105] <--- 这个输出要用来产生anchor了 105*105*2 个
+        [网络调试] SSH2输出:           [1, 256, 53, 53]   <--- 这个输出要用来产生anchor了 53*53*2 个
+        [网络调试] SSH3输出:           [1, 256, 27, 27]   <--- 这个输出要用来产生anchor了 27*27*2 个
+        [网络调试] bbox输出:           [1, 29126, 4]
+        [网络调试] class输出:          [1, 29126, 2]
+        [网络调试] landmark输出:       [1, 29126, 10]
+
+        29126 = 105*105*2 + 53*53*2 + 27*27*2 ，3个SSH，共同贡献了29125个anchor，
+        每层的feature map，每个像素点作为一个anchor的基础，每个点扩出2个anchor（论文里是3个，丫省了一个，倒是无所谓）
+        """
 
         # resnet50参考图：https://s2.ax1x.com/2020/02/23/33V5OH.png
         # 代码名称：       {'layer2': 1,   'layer3': 2,      'layer4': 3},
         # 图示名称：       conv3_x,        conv4_x,          conv5_x
         # 对应输出：       [H/8,W/8,512] , [H/16,W/16,1024], [H/32,W/32,2048]
+        if DEBUG: logger.debug("[网络调试] 网络输入inputs:%r", inputs.shape)
         out = self.body(inputs)
+        for k, v in out.items():
+            if DEBUG: logger.debug("[网络调试] backbone输出 %r:%r", k, v.shape)
 
         # FPN
         # 这里就用了3个fpn的输出，论文是用了5个
@@ -168,12 +201,17 @@ class RetinaFace(nn.Module):
         # 对应论文里的是：P3,             P4,               P5
         # 未实现论文中的P2
         fpn = self.fpn(out)
+        for i, x in enumerate(fpn):
+            if DEBUG: logger.debug("[网络调试] FPN输出 %d:%r", i, x.shape)
 
         # SSH，不改变宽高，输出通道也都仍然是FPN一样的 R:256,M:64
         # 他们的宽高是不一样的，
         feature1 = self.ssh1(fpn[0])  # M:[H/8,W/8,64],  R[H/8,W/8,256]
         feature2 = self.ssh2(fpn[1])  # M:[H/16,W/16,64],R[H/16,W/16,256]
         feature3 = self.ssh3(fpn[2])  # M:[H/32,W/32,64],R[H/32,W/32,256]
+        if DEBUG: logger.debug("[网络调试] SSH1输出: %r", feature1.shape)
+        if DEBUG: logger.debug("[网络调试] SSH2输出: %r", feature2.shape)
+        if DEBUG: logger.debug("[网络调试] SSH3输出: %r", feature3.shape)
 
         # 细节：这3个features的**宽高不一样**
         features = [feature1, feature2, feature3]
@@ -195,4 +233,7 @@ class RetinaFace(nn.Module):
             output = (bbox_regressions, classifications, ldm_regressions)
         else:
             output = (bbox_regressions, F.softmax(classifications, dim=-1), ldm_regressions)
+        if DEBUG: logger.debug("[网络调试] bbox输出: %r", bbox_regressions.shape)
+        if DEBUG: logger.debug("[网络调试] class输出: %r", classifications.shape)
+        if DEBUG: logger.debug("[网络调试] landmark输出: %r", ldm_regressions.shape)
         return output

@@ -16,7 +16,7 @@ then
     --network resnet50 \
     --train_label ./train_data/label.retina/train/label.txt \
     --train_dir ./train_data/images/train/ \
-    --save_folder model/
+    --save_folder model/ 2>&1
 else
     # 这个是用于docker的训练用的entry，CUDA_VISIBLE_DEVICES=0，因为显卡始终是第一块，所以始终为0
     echo "Docker生产模式: mode=$1"

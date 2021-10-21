@@ -28,6 +28,8 @@ class MultiBoxLoss(nn.Module):
             g: ground truth boxes
             N: number of matched default boxes
         See: https://arxiv.org/pdf/1512.02325.pdf for more details.
+    jaccard距离，就是用来算IOU的：https://zh.wikipedia.org/wiki/%E9%9B%85%E5%8D%A1%E5%B0%94%E6%8C%87%E6%95%B0
+
     """
 
     def __init__(self, num_classes, overlap_thresh, prior_for_matching, bkg_label, neg_mining, neg_pos, neg_overlap,
@@ -49,7 +51,7 @@ class MultiBoxLoss(nn.Module):
         Args:
             predictions (tuple): A tuple containing loc preds, conf preds,
             and prior boxes from SSD net.
-                conf shape: torch.size(batch_size,num_priors,num_classes)
+                conf shape: torch.size(batch_size,num_priors,num_classes=2分类，是脸/不是脸)
                 loc shape: torch.size(batch_size,num_priors,4)
                 priors shape: torch.size(num_priors,4)
 

@@ -12,7 +12,27 @@ logger = logging.getLogger(__name__)
 
 class WiderFaceDetection(data.Dataset):
     """
-    加载WiderFace数据集
+    加载RetinaFace专门重新标注过的WiderFace数据集：
+
+    1、人脸标注
+
+    格式：box（x1, y1, w, h），紧接着跟着5个landmark，彼此用0.0分割，最后是一个置信度
+
+    例子：
+    ```
+        # 0--Parade/0_Parade_marchingband_1_849.jpg
+        449 330 122 149 488.906 373.643 0.0 542.089 376.442 0.0 515.031 412.83 0.0 485.174 425.893 0.0 538.357 431.491 0.0 0.82
+        ~~~~人脸bbox~~~~ ~~~lanmark1~~~     ~~~lanmark2~~~      ~~~lanmark3~~~      ~~~lanmark4~~~      ~~~lanmark5~~~     ~置信度
+
+        449 330 122 149 表示box（x1, y1, w, h）
+        接着是5个关键点信息，分别用0.0隔开 或者1.0分开
+        488.906 373.643 0.0
+        542.089 376.442 0.0
+        515.031 412.83 0.0
+        485.174 425.893 0.0
+        538.357 431.491 0.0
+    ```
+
     """
 
     def __init__(self, train_dir, train_label, preproc=None):

@@ -1,5 +1,22 @@
 # RetinaFace
 
+## 训练
+
+```
+[网络调试] 网络输入inputs:torch.Size([1, 3, 840, 840])
+[网络调试] backbone输出 1:torch.Size([1, 512, 105, 105])
+[网络调试] backbone输出 2:torch.Size([1, 1024, 53, 53])
+[网络调试] backbone输出 3:torch.Size([1, 2048, 27, 27])
+[网络调试] FPN输出 0:torch.Size([1, 256, 105, 105])
+[网络调试] FPN输出 1:torch.Size([1, 256, 53, 53])
+[网络调试] FPN输出 2:torch.Size([1, 256, 27, 27])
+[网络调试] SSH1输出: torch.Size([1, 256, 105, 105])
+[网络调试] SSH2输出: torch.Size([1, 256, 53, 53])
+[网络调试] SSH3输出: torch.Size([1, 256, 27, 27])
+[网络调试] bbox输出: torch.Size([1, 29126, 4])
+[网络调试] class输出: torch.Size([1, 29126, 2])
+[网络调试] landmark输出: torch.Size([1, 29126, 10])
+```
 
 ## 数据集
 
@@ -11,35 +28,33 @@
 
 真实的样本情况：（我们下载自网络上的数据集的实际情况）
 
-图片：服务器上unzip后，合计确实是32203张图片，和文档中提到的一致。
+网上下的widerface的标签文件有两种，一种是之前的老的，不带landmark；一种是retineface专门重新标注过landmark的\(retinaface_gt_v1.1.zip\)，我们用这个。
+
+RetinaFace专门重新标注过的WiderFace数据集"retinaface_gt_v1.1.zip"：
+
+格式：box（x1, y1, w, h），紧接着跟着5个landmark，彼此用0.0分割，最后是一个置信度
+
+例子：
 ```
-tree WIDER_train|grep jpg|wc -l
-12880
-tree WIDER_test|grep jpg|wc -l
-16097
-tree WIDER_val|grep jpg|wc -l
-3226
+    # 0--Parade/0_Parade_marchingband_1_849.jpg
+    449 330 122 149 488.906 373.643 0.0 542.089 376.442 0.0 515.031 412.83 0.0 485.174 425.893 0.0 538.357 431.491 0.0 0.82
+    ~~~~人脸bbox~~~~ ~~~lanmark1~~~     ~~~lanmark2~~~      ~~~lanmark3~~~      ~~~lanmark4~~~      ~~~lanmark5~~~     ~置信度
+
+    449 330 122 149 表示box（x1, y1, w, h）
+    接着是5个关键点信息，分别用0.0隔开 或者1.0分开
+    488.906 373.643 0.0
+    542.089 376.442 0.0
+    515.031 412.83 0.0
+    485.174 425.893 0.0
+    538.357 431.491 0.0
 ```
+图片文件是和标准数据集一致的：32,203张；
+但是标注分别是：train 159424张脸，val 39708张脸，test里面没有任何标注，所以合计是199132张脸
 
-标签：合计247472，24万个，和文档中提到的393703相差的比较多。？？？
-```
-  16097 wider_face_test_filelist.txt
- 185184 wider_face_train_bbx_gt.txt
-  46160 wider_face_val_bbx_gt.txt
- 247472 total
-```
+**FDDB测试集：**
 
-数据格式：
-
-`x1, y1, w, h, blur, expression, illumination, invalid, occlusion, pose`
-
-- 1~4位是x1, y1, w, h（x1和y1左上坐标，w和h宽度和高度）
-- blur：模糊，0清晰、1一般、2严重；
-- expression：表情，0正常、1夸张；
-- illumination：曝光，0正常、1极度；
-- occlusion：遮挡，0无、1部分、2大量；
-- pose：姿势，0正常，1非典型；
-
+除了widerface，这个代码里还有另外一个著名的测试集，FDDB，它的标注都是椭圆的，所以需要额外处理。
+test_fddb.py就是这个测试的实现。
 
 # 旧的说明文档
 
