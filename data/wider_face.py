@@ -10,7 +10,46 @@ import torch.utils.data as data
 logger = logging.getLogger(__name__)
 
 
-class WiderFaceDetection(data.Dataset):
+def load_labels(label_file, image_dir):
+    if not os.path.exists(label_file):
+        logger.error("标签文件不存在")
+        exit()
+
+    f = open(label_file, 'r')
+    lines = f.readlines()
+    isFirst = True
+
+    labels = []
+    image_paths = []
+
+    one_person_labels = []
+    for line in lines:
+        line = line.rstrip()
+        if line.startswith('#'):  # #号是图片文件名 "# 9--Press_Conference/9_Press_Conference_Press_Conference_9_22.jpg"
+            if isFirst is True:
+                isFirst = False
+            else:
+                one_person_labels_copy = one_person_labels.copy()
+                labels.append(one_person_labels_copy)
+                one_person_labels_copy.clear()
+            path = line[2:]  # 去掉 #和空格，得到文件名
+            path = os.path.join(image_dir, path)  # 得到文件全路径
+            if not os.path.exists(path):
+                logger.error("图片不存在：%s", path)
+                continue
+            image_paths.append(path)
+        else:
+            # 脸的各种信息：
+            # 长度是20: xywh:4 , landmark:10(5x2), 分割的'0.0'：5，置信度：1
+            # 实际需要保存的也就是4+10=14个就行
+            # 427 46 141 194 469.688 118.125 0.0 534.281 127.875 0.0 498.938 164.438 0.0 469.688 186.375 0.0 523.312 191.25 0.0 0.9
+            line = line.split(' ')
+            label = [float(x) for x in line]
+            one_person_labels_copy.append(label)
+    return labels, image_paths
+
+
+class WiderFaceTrainDataset(data.Dataset):
     """
     加载RetinaFace专门重新标注过的WiderFace数据集：
 
@@ -35,61 +74,34 @@ class WiderFaceDetection(data.Dataset):
 
     """
 
-    def __init__(self, train_dir, train_label, preproc=None):
+    def __init__(self, train_image_dir, train_label, preproc=None):
         self.preproc = preproc
-        self.imgs_path = []
-        self.words = []
-
-        if not os.path.exists(train_label):
-            logger.error("标签文件不存在")
-            exit()
-
-        f = open(train_label, 'r')
-        lines = f.readlines()
-        isFirst = True
-        labels = []
-        for line in lines:
-            line = line.rstrip()
-            if line.startswith('#'):
-                if isFirst is True:
-                    isFirst = False
-                else:
-                    labels_copy = labels.copy()
-                    self.words.append(labels_copy)
-                    labels.clear()
-                path = line[2:]
-                path = os.path.join(train_dir,path)
-                if not os.path.exists(path):
-                    logger.error("图片不存在：%s",path)
-                    continue
-                self.imgs_path.append(path)
-            else:
-                line = line.split(' ')
-                label = [float(x) for x in line]
-                labels.append(label)
-
-        self.words.append(labels)
+        self.imgs_path, self.face_annonation = load_labels(train_label, train_image_dir)
 
     def __len__(self):
         return len(self.imgs_path)
 
     def __getitem__(self, index):
+        """
+        是的，证明了我上面的推测，两个数组self.face_annonation，self.imgs_path，分别存在人脸和图片路径
+        """
+
         img = cv2.imread(self.imgs_path[index])
         height, width, _ = img.shape
 
-        labels = self.words[index]
+        labels = self.face_annonation[index]
         annotations = np.zeros((0, 15))
         if len(labels) == 0:
             return annotations
         for idx, label in enumerate(labels):
-            annotation = np.zeros((1, 15))
-            # bbox
+            annotation = np.zeros((1, 15))  # 长度是15个
+            # bbox ： 0 - 3，4个
             annotation[0, 0] = label[0]  # x1
             annotation[0, 1] = label[1]  # y1
             annotation[0, 2] = label[0] + label[2]  # x2
             annotation[0, 3] = label[1] + label[3]  # y2
 
-            # landmarks
+            # landmarks： 4 - 13 10个
             annotation[0, 4] = label[4]  # l0_x
             annotation[0, 5] = label[5]  # l0_y
             annotation[0, 6] = label[7]  # l1_x
@@ -100,17 +112,19 @@ class WiderFaceDetection(data.Dataset):
             annotation[0, 11] = label[14]  # l3_y
             annotation[0, 12] = label[16]  # l4_x
             annotation[0, 13] = label[17]  # l4_y
+
+            # 最后一个位，是置信度
             if (annotation[0, 4] < 0):
                 annotation[0, 14] = -1
             else:
                 annotation[0, 14] = 1
 
             annotations = np.append(annotations, annotation, axis=0)
-        target = np.array(annotations)
+        faces_info = np.array(annotations)
         if self.preproc is not None:
-            img, target = self.preproc(img, target)
+            img, faces_info = self.preproc(img, faces_info)
 
-        return torch.from_numpy(img), target
+        return torch.from_numpy(img), faces_info
 
 
 def detection_collate(batch):
@@ -136,3 +150,48 @@ def detection_collate(batch):
                 targets.append(annos)
 
     return (torch.stack(imgs, 0), targets)
+
+
+class WiderFaceValDataset(data.Dataset):
+    """
+    加载RetinaFace验证(Val)用WiderFace数据集：
+
+    格式：box（x1, y1, w, h），没有训练集中的5个landmark
+
+    例子：
+    ```
+        # 0--Parade/0_Parade_marchingband_1_849.jpg
+        449 330 122 149
+        488 906 373 643
+        ...
+    ```
+    """
+
+    def __init__(self, image_dir, label_path):
+        self.imgs_path, self.labels = load_labels(label_path, image_dir)
+
+    def __len__(self):
+        return len(self.imgs_path)
+
+    def __getitem__(self, index):
+        """
+        是的，证明了我上面的推测，两个数组self.face_annonation，self.imgs_path，分别存在人脸和图片路径
+        """
+
+        img = cv2.imread(self.imgs_path[index])
+        height, width, _ = img.shape
+
+        labels = self.labels[index]
+        annotations = np.zeros((0, 3))
+        if len(labels) == 0:
+            return annotations
+
+        for idx, label in enumerate(labels):
+            annotation = np.zeros((0, 3))  # 长度是4个
+            annotation[0, 0] = label[0]  # x1
+            annotation[0, 1] = label[1]  # y1
+            annotation[0, 2] = label[0] + label[2]  # x2
+            annotation[0, 3] = label[1] + label[3]  # y2
+            annotations = np.append(annotations, annotation, axis=0)
+        faces_info = np.array(annotations)
+        return torch.from_numpy(img), faces_info

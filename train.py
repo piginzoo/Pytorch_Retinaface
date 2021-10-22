@@ -11,7 +11,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.utils.data as data
 
-from data import WiderFaceDetection, detection_collate, preproc, cfg_mnet, cfg_re50
+from data import WiderFaceTrainDataset, detection_collate, preproc, cfg_mnet, cfg_re50
 from layers.functions.prior_box import PriorBox
 from layers.modules import MultiBoxLoss
 from models.retinaface import RetinaFace
@@ -117,7 +117,7 @@ def train(args):
     net.train()
     logger.debug('开始加载数据集: 图片目录：%s，标签文件：%s', train_dir, train_label)
 
-    dataset = WiderFaceDetection(train_dir, train_label, preproc(img_dim, rgb_mean))
+    dataset = WiderFaceTrainDataset(train_dir, train_label, preproc(img_dim, rgb_mean))
     logger.info("数据集加载完毕：合计 %d 张", len(dataset))
     data_loader = iter(data.DataLoader(dataset,
                                        batch_size,

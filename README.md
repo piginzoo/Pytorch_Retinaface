@@ -36,6 +36,7 @@ RetinaFace专门重新标注过的WiderFace数据集"retinaface_gt_v1.1.zip"：
 
 例子：
 ```
+    Retina提供的widerface标注
     # 0--Parade/0_Parade_marchingband_1_849.jpg
     449 330 122 149 488.906 373.643 0.0 542.089 376.442 0.0 515.031 412.83 0.0 485.174 425.893 0.0 538.357 431.491 0.0 0.82
     ~~~~人脸bbox~~~~ ~~~lanmark1~~~     ~~~lanmark2~~~      ~~~lanmark3~~~      ~~~lanmark4~~~      ~~~lanmark5~~~     ~置信度
@@ -47,6 +48,19 @@ RetinaFace专门重新标注过的WiderFace数据集"retinaface_gt_v1.1.zip"：
     515.031 412.83 0.0
     485.174 425.893 0.0
     538.357 431.491 0.0
+
+    ---------------------------------------------------------------------------------
+
+    原始的widerface标注格式：（保留做参考）
+
+    `x1, y1, w, h, blur, expression, illumination, invalid, occlusion, pose`
+    
+    - 1~4位是x1, y1, w, h（x1和y1左上坐标，w和h宽度和高度）
+    - blur：模糊，0清晰、1一般、2严重；
+    - expression：表情，0正常、1夸张；
+    - illumination：曝光，0正常、1极度；
+    - occlusion：遮挡，0无、1部分、2大量；
+    - pose：姿势，0正常，1非典型；
 ```
 图片文件是和标准数据集一致的：32,203张；
 但是标注分别是：train 159424张脸，val 39708张脸，test里面没有任何标注，所以合计是199132张脸
