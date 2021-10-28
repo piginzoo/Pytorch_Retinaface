@@ -33,7 +33,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def calc_precision_recall(iou_matrx, preds, prob_thresh):
+def calc_precision_recall(iou_matrx, preds, prob_thresh=0.5):
     """
     传入一个IOU的相交矩阵（iou_matrx），行是pred的个数，列是GT的个数
     然后根据阈值（prob_thresh）确定正例，然后计算recall和precision
@@ -68,6 +68,7 @@ def calc_precision_recall(iou_matrx, preds, prob_thresh):
                  (iou_matrx.sum(axis=1) > 0).sum() / iou_matrx.shape[0])
     precision = (iou_matrx.sum(axis=1) > 0).sum() / iou_matrx.shape[0]
     recall = (iou_matrx.sum(axis=0) > 0).sum() / iou_matrx.shape[1]
+    f1 = precision, recall # TODO
     return precision, recall
 
 

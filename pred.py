@@ -1,13 +1,15 @@
 import logging
-import math
+import time
 
 import cv2
 import numpy as np
 import torch
 import torch.utils.data as data
 
+import utils
 from config import CFG
 from data.wider_face import WiderFaceValDataset
+from layers.functions.prior_box import PriorBox
 from utils import get_device
 from utils.box_utils import decode, decode_landm
 from utils.nms.py_cpu_nms import py_cpu_nms
@@ -15,57 +17,40 @@ from utils.nms.py_cpu_nms import py_cpu_nms
 logger = logging.getLogger(__name__)
 
 
-def test(image_dir, label_path, batch_size, num_workers=1):
+def test(image_dir, label_path, batch_size, test_batch_num, num_workers=1):
+    device = utils.get_device()
+
     dataset = WiderFaceValDataset(image_dir, label_path)
-
     logger.info("数据集加载完毕：合计 %d 张", len(dataset))
-    data_loader = iter(data.DataLoader(dataset,
-                                       batch_size,
-                                       shuffle=True,
-                                       num_workers=num_workers))
-
-    steps_of_epoch = math.ceil(len(dataset) / batch_size)
-    logger.info("训练集批次：%d 张/批，一个epoch共有 %d 个批次", batch_size, steps_of_epoch)
-
-    # 开始训练！
-    for epoch in range(max_epoch):
-        logger.info("开始 第 %d 个 epoch", epoch)
-
-        epoch_start = time.time()
-        for step in range(steps_of_epoch):
-            # if (epoch % 10 == 0 and epoch > 0) or (epoch % 5 == 0 and epoch > cfg['decay1']):
-            #     torch.save(net.state_dict(), save_folder + cfg['name'] + '_epoch_' + str(epoch) + '.pth')
-            # epoch += 1
-
-            # 加载一个批次的训练数据
-            images, labels = next(data_loader)
-            images = images.to(device)
-            labels = [anno.to(device) for anno in labels]
-            logger.debug("加载了%d条数据", len(images))
+    data_loader = data.DataLoader(dataset,
+                                  batch_size,
+                                  shuffle=True,
+                                  num_workers=num_workers)
+    start = time.time()
+    preds = []
+    gts = []
+    for step in range(test_batch_num):
+        # 加载一个批次的训练数据
+        images, labels = next(data_loader)
+        logger.debug("加载了%d条数据", len(images))
+        images = images.to(device)
+        labels = [anno.to(device) for anno in labels]
+        bbox_scores_landmarks = pred()
+        # bbox_scores_landmarks.concat() TODO
+    logger.info("预测完成，%d 张，耗时： %.2f 分钟", batch_size * test_batch_num, (time.time() - start) / 60)
+    return bbox_scores_landmarks, gts
 
 
-def pred(image, model):
+def pred(images, model):
     """
     传入图片，得到预测框，已经经过了IOU（CFG.nms_threshold）、概率过滤（CFG.confidence_threshold）。
     """
-
     device = get_device()
 
-    # testing scale
-    target_size = 1600
-    max_size = 2150
-    im_shape = image.shape
-    im_size_min = np.min(im_shape[0:2])
-    im_size_max = np.max(im_shape[0:2])
-    resize = float(target_size) / float(im_size_min)
-    # prevent bigger axis from being more than max_size:
-    if np.round(resize * im_size_max) > max_size:
-        resize = float(max_size) / float(im_size_max)
-    if args.origin_size:
-        resize = 1
+    CFG.
 
     if resize != 1:
-        image = cv2.resize(image, None, None, fx=resize, fy=resize, interpolation=cv2.INTER_LINEAR)
+        image = cv2.resize(images, None, None, fx=resize, fy=resize, interpolation=cv2.INTER_LINEAR)
     im_height, im_width, _ = image.shape
     scale = torch.Tensor([image.shape[1], image.shape[0], image.shape[1], image.shape[0]])
     image -= (104, 117, 123)
@@ -74,10 +59,7 @@ def pred(image, model):
     image = image.to(device)
     scale = scale.to(device)
 
-    _t['forward_pass'].tic()
     loc, conf, landms = model(image)  # forward pass
-    _t['forward_pass'].toc()
-    _t['misc'].tic()
 
     priorbox = PriorBox(cfg, image_size=(im_height, im_width))
     priors = priorbox.forward()

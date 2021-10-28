@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import argparse
-import datetime
 import logging
 import math
 import os
@@ -11,6 +10,8 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.utils.data as data
 
+import eval
+import pred
 from data import WiderFaceTrainDataset, detection_collate, preproc, cfg_mnet, cfg_re50
 from layers.functions.prior_box import PriorBox
 from layers.modules import MultiBoxLoss
@@ -29,6 +30,8 @@ def parse_argumens():
     parser.add_argument('--name', default='retinaface')
     parser.add_argument('--debug', dest='debug', action='store_true')
     parser.add_argument('--train_label', default='./train_data/label.retina/train/label.txt',
+                        help='Training dataset directory')
+    parser.add_argument('--val_label', default='./train_data/label.retina/val/label.txt',
                         help='Training dataset directory')
     parser.add_argument('--train_dir', default='./train_data/images/train/',
                         help='Training dataset directory')
@@ -174,14 +177,12 @@ def train(args):
 
             total_steps += 1
 
-            if total_steps % args.print_steps ==0:
+            if total_steps % args.print_steps == 0:
                 logger.debug("Epoch/Step: %r/%r, 总Step:%r, loss[bbox/class/landmark]: %.4f,%.4f,%.4f",
-                         epoch, step, total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
+                             epoch, step, total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
 
-
-
-        epoch_time = time.time()-epoch_start
-        batch_time = epoch_time/steps_of_epoch
+        epoch_time = time.time() - epoch_start
+        batch_time = epoch_time / steps_of_epoch
 
         if latest_loss < min_loss:
             logger.info("Epoch[%d] loss[%.4f] 比之前 loss[%.4f] 更低，保存模型",
@@ -202,6 +203,14 @@ def train(args):
 
     torch.save(net.state_dict(), save_folder + cfg['name'] + '_Final.pth')
     logger.debug("保存模型：%s", save_folder + cfg['name'] + '_Final.pth')
+
+
+def validate(image_dir, label_path):
+    bbox_scores_landmarks, gts = pred.test(image_dir, label_path, CFG.val_batch_size, CFG.val_batch_num)
+    bbox_scores = bbox_scores_landmarks[:2]
+    iou_matrx = eval.calc_iou_matrix(bbox_scores, gts, 0.5, xywh=False)
+    precision, recall, f1 = eval.calc_precision_recall(iou_matrx, bbox_scores, 0.5)
+    return precision, recall, f1
 
 
 if __name__ == '__main__':

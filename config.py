@@ -37,7 +37,9 @@ common_dict = {
     'keep_top_k':750,
     'confidence_threshold':0.02,
     'visualization_threshold':0.5,
-    'tboard_dir': 'logs/tboard'
+    'tboard_dir': 'logs/tboard',
+    'val_batch_size': 24,
+    'val_batch_num': 20
 }
 from collections import namedtuple
 namedTupleConstructor = namedtuple('myNamedTuple', ' '.join(sorted(common_dict.keys())))
