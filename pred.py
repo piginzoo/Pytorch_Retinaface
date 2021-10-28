@@ -1,38 +1,21 @@
-"""
-验证代码，
-标签文件：用retine的widerface的验证文件，train_data/label.retina/val/label.txt
-图片：train_data/images
-1、解析验证用标签文件
-2、通过模型进行预测
-3、NMS后处理得到预测框
-4、做bboxes比对得到正确率、ROC等
-
-细节：
-- 可以单独运行，所以支持加载模型
-- 也可以直接继承到训练过程中用于正确率验证，模型传入
-- 支持调试图片生成
-- 参考原作者代码，和集成部分原作者代码
-"""
+import logging
 import math
 
 import cv2
 import numpy as np
 import torch
+import torch.utils.data as data
 
+from config import CFG
 from data.wider_face import WiderFaceValDataset
-from layers.functions.prior_box import PriorBox
 from utils import get_device
 from utils.box_utils import decode, decode_landm
 from utils.nms.py_cpu_nms import py_cpu_nms
-from config import CFG
-from widerface_evaluate.evaluation import image_eval
-import torch.utils.data as data
-
-import logging
 
 logger = logging.getLogger(__name__)
 
-def test(image_dir,label_path,batch_size,num_workers=1):
+
+def test(image_dir, label_path, batch_size, num_workers=1):
     dataset = WiderFaceValDataset(image_dir, label_path)
 
     logger.info("数据集加载完毕：合计 %d 张", len(dataset))
@@ -43,7 +26,6 @@ def test(image_dir,label_path,batch_size,num_workers=1):
 
     steps_of_epoch = math.ceil(len(dataset) / batch_size)
     logger.info("训练集批次：%d 张/批，一个epoch共有 %d 个批次", batch_size, steps_of_epoch)
-
 
     # 开始训练！
     for epoch in range(max_epoch):
@@ -61,7 +43,12 @@ def test(image_dir,label_path,batch_size,num_workers=1):
             labels = [anno.to(device) for anno in labels]
             logger.debug("加载了%d条数据", len(images))
 
-def test(image, model):
+
+def pred(image, model):
+    """
+    传入图片，得到预测框，已经经过了IOU（CFG.nms_threshold）、概率过滤（CFG.confidence_threshold）。
+    """
+
     device = get_device()
 
     # testing scale
@@ -140,8 +127,3 @@ def test(image, model):
     bbox_scores_landmarks = np.concatenate((bbox_scores, landms), axis=1)
 
     return bbox_scores_landmarks
-
-
-def evaluate():
-    image_eval(preds,gts)
-

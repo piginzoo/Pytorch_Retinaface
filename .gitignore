@@ -4,4 +4,6 @@ logs/
 train_data/
 train_data
 model/
-
+*.so
+*.c
+build/
