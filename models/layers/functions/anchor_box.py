@@ -4,13 +4,13 @@ from math import ceil
 import torch
 
 
-class PriorBox(object):
+class AnchorBox(object):
     """
-    感觉就是anchor的准备，
+    生成anchors
     """
 
     def __init__(self, cfg, image_size=None, phase='train'):
-        super(PriorBox, self).__init__()
+        super(AnchorBox, self).__init__()
         self.min_sizes = cfg['min_sizes']  # 'min_sizes': [[16, 32], [64, 128], [256, 512]],
         self.steps = cfg['steps']  # 'steps': [8, 16, 32] <-- 原图缩放的大小
         self.clip = cfg['clip']  # 'clip': False

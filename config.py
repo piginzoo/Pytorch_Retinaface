@@ -6,7 +6,6 @@ cfg_mnet = {
     'steps': [8, 16, 32],
     'variance': [0.1, 0.2],
     'clip': False,
-    'loc_weight': 2.0,
     'batch_size': 32,
     'image_size': 640,
     'return_layers': {'stage1': 1, 'stage2': 2, 'stage3': 3},
@@ -20,7 +19,6 @@ cfg_re50 = {
     'steps': [8, 16, 32],
     'variance': [0.1, 0.2],
     'clip': False,
-    'loc_weight': 2.0,
     'batch_size': 24,
     'image_size': 840,
     'return_layers': {'layer2': 1, 'layer3': 2, 'layer4': 3},
@@ -28,24 +26,32 @@ cfg_re50 = {
     'out_channel': 256,
 }
 
-
 common_dict = {
-    'nms_threshold':0.4,
-    'top_k':5000,
-    'keep_top_k':750,
-    'confidence_threshold':0.02,
-    'visualization_threshold':0.5,
+    'nms_threshold': 0.4,
+    'top_k': 5000,
+    'keep_top_k': 750,
+    'location_weight': 2.0,
+    'confidence_threshold': 0.02,
+    'visualization_threshold': 0.5,
     'tboard_dir': 'logs/tboard',
     'val_batch_size': 24,
     'val_batch_num': 20,
     'print_steps': 1000,
-    'network':'resnet50',
-    'num_workers':4,
-    'early_stop':20
+    'network': 'resnet50',
+    'num_workers': 4,
+    'early_stop': 20,
+    'max_epochs': 100
 }
 
 from collections import namedtuple
+
 namedTupleConstructor = namedtuple('myNamedTuple', ' '.join(sorted(common_dict.keys())))
 CFG = namedTupleConstructor(**common_dict)
 
 
+def network_conf(type):
+    if type == "resnet50":
+        return cfg_re50
+    if type == "mobilenet":
+        return cfg_mnet
+    raise ValueError("Unrecognized Type:" + type)

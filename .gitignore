@@ -1,8 +1,8 @@
 .idea/
 __pycache__/
 logs/
-train_data/
-train_data
+data/
+data
 model/
 *.so
 *.c

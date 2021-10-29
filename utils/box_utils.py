@@ -215,7 +215,7 @@ def decode(loc, priors, variances):
             Shape: [num_priors,4]
         priors (tensor): Prior boxes in center-offset form.
             Shape: [num_priors,4].
-        variances: (list[float]) Variances of priorboxes
+        variances: (list[float]) Variances of priorboxes: [0.1,0.2]
     Return:
         decoded bounding box predictions
         box[t_x,t_y,t_w,t_h]

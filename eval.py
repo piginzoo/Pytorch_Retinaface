@@ -1,7 +1,7 @@
 """
 验证代码，
-标签文件：用retine的widerface的验证文件，train_data/label.retina/val/label.txt
-图片：train_data/images
+标签文件：用retine的widerface的验证文件，data/label.retina/val/label.txt
+图片：data/images
 1、解析验证用标签文件
 2、通过模型进行预测
 3、NMS后处理得到预测框
@@ -25,17 +25,93 @@ AP的实现：AP，即Average PrecisionmAP，是不同置信度下的recall和pr
 """
 import logging
 
+import numpy
 import numpy as np
+import pyximport
 
-# from data.wider_face import WiderFaceValDataset
-# from layers.functions.prior_box import PriorBox
+from utils.box import box_overlaps
 
 logger = logging.getLogger(__name__)
 
 
-def calc_precision_recall(iou_matrx, preds, prob_thresh=0.5):
+def calc_iou_matrix(pred, gt, iou_thresh=0.7, xywh=True):
     """
-    传入一个IOU的相交矩阵（iou_matrx），行是pred的个数，列是GT的个数
+    single image evaluation
+    pred: [N,5], x1,y1,x2,y2,prob，是预测的框，带着置信度
+    gt:   [N,4], x1,y1,x2,y2
+    xywh: 是否坐标格式是[x,y,w,h]，如果是，需要换成[x1,y1,x2,y2]格式
+
+    """
+
+    _pred = pred.copy()
+    _gt = gt.copy()
+    if xywh:
+        # 把基于宽高的预测，改成左上和右下的坐标
+        # x,y,w,h => x1,y1,x2,y2
+        # 0,1,2,3
+        _pred[:, 2] = _pred[:, 2] + _pred[:, 0]  #
+        _pred[:, 3] = _pred[:, 3] + _pred[:, 1]
+        _gt[:, 2] = _gt[:, 2] + _gt[:, 0]
+        _gt[:, 3] = _gt[:, 3] + _gt[:, 1]
+
+    # 准备俩flag标志数组，长度是pred框个数，和，gt框个数，
+    # 1：表示，被别人给罩上了，0：表示，没有人罩我，当然要基于一个阈值来决定罩还是不罩
+    # 计算pred和GT重叠的框
+    """
+    bbox_overlaps，入参：
+    - boxes: (N, 4) ndarray of float
+    - query_boxes: (K, 4) ndarray of float
+    出参：overlaps: (N, K) ndarray of overlap between boxes and query_boxes,是一个矩阵，每个元素是两个框的IOU
+    """
+    pyximport.install(setup_args={"include_dirs": numpy.get_include()}, reload_support=True)
+    overlaps = box_overlaps.bbox_overlaps(_pred[:, :4], _gt)
+    # logger.debug("三方库算出的重叠矩阵：\r %r",overlaps)
+    logger.debug("三方库算出的重叠矩阵：%r [Pred,GT]", overlaps.shape)
+
+    # 先复制一份，因为需要修改里面的
+    overlaps = overlaps.copy()
+
+    iou_maxtrix = np.zeros(overlaps.shape)
+
+    # 按照pred进行遍历
+    for pred_index in range(_pred.shape[0]):
+
+        # 得到这个pred和每个gt的相交比iou
+        iou_with_gt = overlaps[pred_index]
+
+        # 找出和某个预测框相交最大的gt，返回IOU和它的索引
+        max_iou_with_gt, max_iou_with_gt_idx = iou_with_gt.max(), iou_with_gt.argmax()
+
+        # 如果大于阈值，说明: 1.这个pred有效，2.有个GT被匹配上了
+        if max_iou_with_gt >= iou_thresh:
+            # gt_match是每个gt，对一个，这步，标明这个GT被某个pred罩上了
+            # gt_match[max_iou_with_gt_idx] = 1
+            # pred_match[pred_index] = 1
+            iou_maxtrix[pred_index, max_iou_with_gt_idx] = 1
+
+    return iou_maxtrix
+
+
+def drop_iou_matrix_by_thresh(iou_matrix, preds, prob_thresh=0.5):
+    """
+    根据pred的置信度度，删除掉 [pred、GT 0/1相交矩阵] 中对应的行（pred是行）
+    """
+
+    # 先复制一份，因为需要修改里面的
+    iou_matrix = iou_matrix.copy()
+
+    # 通过阈值过滤出负例
+    negative_indices = np.where(preds[:, 4] < prob_thresh)[0]  # 得到正例的索引们
+
+    # 直接从相交矩阵中，删除掉那些概率低对应的行（当然是根据置信度阈值）
+    iou_matrix = np.delete(iou_matrix, negative_indices, axis=0)
+
+    return iou_matrix
+
+
+def calc_precision_recall(iou_matrix):
+    """
+    传入一个IOU的相交矩阵（iou_matrix），行是pred的个数，列是GT的个数
     然后根据阈值（prob_thresh）确定正例，然后计算recall和precision
 
     recall召回率 = 我检测出的正确人脸 / 所有的人脸
@@ -51,32 +127,28 @@ def calc_precision_recall(iou_matrx, preds, prob_thresh=0.5):
     按照pred循环，看每个pred，是不是盖上了某个gt，最终得到就得到每个gt被覆盖的情况，可以算出基于gt的recall
     然后看统计所有的pred，看可以算出基于pred的precision
     """
-
-    # 先复制一份，因为需要修改里面的
-    iou_matrx = iou_matrx.copy()
-
-    # 通过阈值过滤出负例
-    negative_indices = np.where(preds[:, 4] < prob_thresh)[0]  # 得到正例的索引们
-
-    # 负例对应的iou_matrix的pred的行，清空所有的1=>0，这步表达的是，这个框不是正例了，相交肯定是0
-    iou_matrx[negative_indices, :] = 0
-
     # axis=1是计算对每行求sum,很诡异,test出来的
-    logger.debug("精度计算：TP:%d, P:%d, Precision:%.2f",
-                 (iou_matrx.sum(axis=1) > 0).sum(),
-                 iou_matrx.shape[0],
-                 (iou_matrx.sum(axis=1) > 0).sum() / iou_matrx.shape[0])
-    precision = (iou_matrx.sum(axis=1) > 0).sum() / iou_matrx.shape[0]
-    recall = (iou_matrx.sum(axis=0) > 0).sum() / iou_matrx.shape[1]
-    f1 = precision, recall # TODO
-    return precision, recall
+    # logger.debug("精度计算：TP:%d, P:%d, Precision:%.2f",
+    #              (iou_matrix.sum(axis=1) > 0).sum(),
+    #              iou_matrix.shape[0],
+    #              (iou_matrix.sum(axis=1) > 0).sum() / iou_matrix.shape[0])
+    TruePositive_Pred = (iou_matrix.sum(axis=1) > 0).sum()
+    TruePositive_GT = (iou_matrix.sum(axis=0) > 0).sum()
+    assert TruePositive_Pred == TruePositive_GT, "Pred:" + TruePositive_Pred + "/GT:" + TruePositive_GT
+
+    precision = TruePositive_Pred / iou_matrix.shape[0]
+    recall = TruePositive_GT / iou_matrix.shape[1]
+    f1 = 2 * (recall * precision) / (recall + precision)
+
+    # 返回：TruePositive_GT：真正和GT相交的，iou_matrix.shape[0]：按照pred的置信度过滤后的个数
+    return precision, recall, f1, TruePositive_GT
 
 
-def generate_pr_curve(iou_matrx, preds, thresh_num=100):
+def generate_pr_curve(iou_matrix, preds, thresh_num=100):
     """
     用来生成PR曲线的点
-    :param iou_matrx: 根据IOU计算完的相交矩阵，行为pred，列为gt，相交1，不相交0
-    :param pred: [N,5], 预测的信息，[x1,y1,x2,y2,prob]
+    :param iou_matrix: 根据IOU计算完的相交矩阵，行为pred，列为gt，相交1，不相交0
+    :param preds: [N,5], 预测的信息，[x1,y1,x2,y2,prob]
     :param thresh_num: PR曲线的间隔点，即置信度阈值取多少个，默认是100个点
     :return
         返回的是一个precision-recall的数组[thresh_num=100,2]
@@ -89,7 +161,8 @@ def generate_pr_curve(iou_matrx, preds, thresh_num=100):
             precision_recall[t, 0] = 0
             precision_recall[t, 1] = 0
         else:
-            precision, recall = calc_precision_recall(iou_matrx, preds, thresh)
+            iou_matrix = drop_iou_matrix_by_thresh(iou_matrix, preds, thresh)
+            precision, recall, f1, tp = calc_precision_recall(iou_matrix)
             precision_recall[t, 0] = precision  # 精确率
             precision_recall[t, 1] = recall  # 召回率
         logger.debug("阈值: %.2f, 对应 Precision: %.2f, Recall: %.2f", thresh, precision_recall[t, 0],
@@ -100,7 +173,6 @@ def generate_pr_curve(iou_matrx, preds, thresh_num=100):
 def calc_recall_precision_by_thresh(pred_info, proposal_list, pred_recall, thresh_num=100):
     """
     根据阈值，计算精确率precision和召回率recall
-    @param thresh_num:
     """
 
     pr_info = np.zeros((thresh_num, 2)).astype('float')
@@ -119,7 +191,7 @@ def calc_recall_precision_by_thresh(pred_info, proposal_list, pred_recall, thres
     return pr_info
 
 
-def voc_ap(iou_matrx, preds):
+def voc_ap(iou_matrix, preds):
     """
     计算
     voc-ap: Visual Object Classes Average Precision,AP是precision-recall曲线下面积
@@ -127,7 +199,7 @@ def voc_ap(iou_matrx, preds):
     precision: [100,1]，100个precision值
     """
 
-    precision_recall = generate_pr_curve(iou_matrx, preds)
+    precision_recall = generate_pr_curve(iou_matrix, preds)
     precision = precision_recall[:, 0]
     recall = precision_recall[:, 1]
 

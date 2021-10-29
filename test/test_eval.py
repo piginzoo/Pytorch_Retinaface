@@ -56,7 +56,7 @@ if __name__ == '__main__':
     utils.init_log()
 
     # case1: 测试一个精确率和recall的计算，iou_matrix.shape = [5,8]，行是pred=5，列是gt=8
-    iou_matrx = np.array([
+    iou_matrix = np.array([
         [1, 0, 0, 0, 0, 1, 1, 0],
         [0, 0, 0, 0, 0, 0, 0, 0],
         [1, 0, 0, 1, 1, 1, 1, 0],
@@ -64,7 +64,8 @@ if __name__ == '__main__':
         [1, 0, 0, 0, 1, 0, 1, 1]])
     preds = np.zeros((5, 5))  # bbox[5个框，5个值(x1,y1,x2,y2,prob)]
     preds[:, 4] = 1  # prob都设成1
-    precision, recall = eval.calc_precision_recall(iou_matrx, preds, 0.5)
+    iou_matrix = eval.drop_iou_matrix_by_thresh(iou_matrix, preds, thresh=0.5)
+    precision, recall, f1, tp = eval.calc_precision_recall(iou_matrix)
     assert precision == 0.8, precision  # 1/5
     assert recall == 0.875, recall  # 1/8
 
@@ -81,9 +82,12 @@ if __name__ == '__main__':
     preds = preds.reshape(-1, 4)
     gts = gts.reshape(-1, 4)
     preds = np.append(preds, preds_probs, axis=1)
-    iou_matrx = eval.calc_iou_matrix(preds, gts, 0.5, xywh=False)
-    logger.debug("Pred/GT相交矩阵：%r \r %r", iou_matrx.shape, iou_matrx)
-    precision, recall = eval.calc_precision_recall(iou_matrx, preds, 0.5)
+    iou_matrix = eval.calc_iou_matrix(preds, gts, 0.5, xywh=False)
+
+    logger.debug("Pred/GT相交矩阵：%r \r %r", iou_matrix.shape, iou_matrix)
+    iou_matrix = eval.drop_iou_matrix_by_thresh(iou_matrix, preds, thresh=0.5)
+    precision, recall, f1, tp = eval.calc_precision_recall(iou_matrix)
+
     assert precision == (5 / 7), precision
     assert recall == (5 / 6), recall
 
@@ -92,10 +96,10 @@ if __name__ == '__main__':
     如果测试AP，bbox的probs就不能都为1了，得人为造一个随机的了
     """
     preds[:, 4] = np.random.random(7)
-    ap = eval.voc_ap(iou_matrx, preds)
+    ap = eval.voc_ap(iou_matrix, preds)
     logger.debug("AP值：%.4f", ap)
     # 画AP曲线
-    precision_recall = eval.generate_pr_curve(iou_matrx, preds)
+    precision_recall = eval.generate_pr_curve(iou_matrix, preds)
     plt.figure(dpi=150, figsize=(3, 3))
     print(precision_recall)
     plt.xlim([0, 1])  # 设置x、y轴的上下限
