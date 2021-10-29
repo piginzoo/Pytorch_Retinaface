@@ -16,7 +16,7 @@ from data import WiderFaceTrainDataset, detection_collate, preproc, cfg_mnet, cf
 from layers.functions.prior_box import PriorBox
 from layers.modules import MultiBoxLoss
 from models.retinaface import RetinaFace
-from utils import init_log, get_device
+from utils import init_log, get_device, visualizer, save_model
 from utils.early_stop import EarlyStop
 from utils.visualizer import TensorboardVisualizer
 
@@ -35,16 +35,6 @@ def parse_argumens():
                         help='Training dataset directory')
     parser.add_argument('--train_dir', default='./train_data/images/train/',
                         help='Training dataset directory')
-    parser.add_argument('--network', default='resnet50', help='Backbone network mobile0.25 or resnet50')
-    parser.add_argument('--num_workers', default=4, type=int, help='Number of workers used in dataloading')
-    parser.add_argument('--print_steps', default=1000, type=int, help='debug print interval')
-    parser.add_argument('--stop', default=30, type=int, help='most early stop num')
-    parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float, help='initial learning rate')
-    parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
-    parser.add_argument('--resume_net', default=None, help='resume net for retraining')
-    parser.add_argument('--resume_epoch', default=0, type=int, help='resume iter for retraining')
-    parser.add_argument('--weight_decay', default=5e-4, type=float, help='Weight decay for SGD')
-    parser.add_argument('--gamma', default=0.1, type=float, help='Gamma update for SGD')
     parser.add_argument('--save_folder', default='./model/', help='Location to save checkpoint models')
 
     args = parser.parse_args()
@@ -131,9 +121,6 @@ def train(args):
     steps_of_epoch = math.ceil(len(dataset) / batch_size)
     logger.info("训练集批次：%d 张/批，一个epoch共有 %d 个批次", batch_size, steps_of_epoch)
 
-    stepvalues = (cfg['decay1'] * steps_of_epoch, cfg['decay2'] * steps_of_epoch)
-    step_index = 0
-
     if args.resume_epoch > 0:
         total_steps = args.resume_epoch * steps_of_epoch
     else:
@@ -145,7 +132,8 @@ def train(args):
     optimizer = torch.optim.Adam([{'params': net.parameters(), 'lr': 0.01}])
 
     # 开始训练！
-    for epoch in range(max_epoch):
+    latest_loss = -1
+    for epoch in range(1, max_epoch + 1):
         logger.info("开始 第 %d 个 epoch", epoch)
 
         epoch_start = time.time()
@@ -177,40 +165,50 @@ def train(args):
 
             total_steps += 1
 
+            # 每隔N个batch，就算一下这个批次的正确率
             if total_steps % args.print_steps == 0:
-                logger.debug("Epoch/Step: %r/%r, 总Step:%r, loss[bbox/class/landmark]: %.4f,%.4f,%.4f",
-                             epoch, step, total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
+                logger.debug("Epoch/Step: %r/%r, 总Step:%r, loss[bbox/class/landmark]: %.4f,%.4f,%.4f", epoch, step,
+                             total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
 
-        epoch_time = time.time() - epoch_start
-        batch_time = epoch_time / steps_of_epoch
+                # 从第3个epoch，才开始记录最小loss的模型，且F1设置为0
+                if epoch > 2 and latest_loss < min_loss:
+                    logger.info("Step[%d] loss[%.4f] 比之前 loss[%.4f] 都低，保存模型", epoch, latest_loss, min_loss)
+                    min_loss = latest_loss
+                    save_model(net, epoch, total_steps, latest_loss, 0)
 
-        if latest_loss < min_loss:
-            logger.info("Epoch[%d] loss[%.4f] 比之前 loss[%.4f] 更低，保存模型",
-                        epoch,
-                        latest_loss,
-                        min_loss)
-            min_loss = latest_loss
-            save_model(opt, epoch, model, len(trainloader), latest_loss, acc)
+        logger.info("Epoch [%d] 结束，耗时 %.2f 秒", epoch, time.time() - epoch_start)
+
+        # 做F1的计算，并可视化图片
+        precision, recall, f1 = validate(args.image_dir, args.val_label)
+        visualizer.text(total_steps, precision, name='Precision')
+        visualizer.text(total_steps, recall, name='Recall')
+        visualizer.text(total_steps, f1, name='F1')
 
         # early_stopper可以帮助存基于acc的best模型
-        if early_stopper.decide(acc, save_model, opt, epoch + 1, model, len(trainloader), latest_loss, acc):
-            logger.info("早停导致退出：epoch[%d] acc[%.4f]", epoch + 1, acc)
+        if early_stopper.decide(f1, save_model, net, epoch + 1, total_steps, latest_loss, f1):
+            logger.info("早停导致退出：epoch[%d] f1[%.4f]", epoch + 1, f1)
             break
-
-        logger.info("Epoch [%d] 结束可视化(保存softmax可视化)", epoch)
-        total_steps = (epoch + 1) * len(trainloader)
-        visualizer.text(total_steps, acc, name='test_acc')
 
     torch.save(net.state_dict(), save_folder + cfg['name'] + '_Final.pth')
     logger.debug("保存模型：%s", save_folder + cfg['name'] + '_Final.pth')
 
 
-def validate(image_dir, label_path):
+def validate(image_dir, label_path,CFG):
     bbox_scores_landmarks, gts = pred.test(image_dir, label_path, CFG.val_batch_size, CFG.val_batch_num)
     bbox_scores = bbox_scores_landmarks[:2]
     iou_matrx = eval.calc_iou_matrix(bbox_scores, gts, 0.5, xywh=False)
     precision, recall, f1 = eval.calc_precision_recall(iou_matrx, bbox_scores, 0.5)
     return precision, recall, f1
+
+
+def train_check(images, labels, loss, epoch, total_steps):
+    logger.debug("[可视化] 第%d批", total_steps)
+    # 从tensor=>numpy(device从cuda=>cpu)
+    labels = labels.cpu().detach().numpy()
+    images = images.cpu().detach().numpy()
+    logger.info("[可视化] 迭代[%d]steps,loss[%.4f]", total_steps, loss.item())
+    visualizer.text(total_steps, loss.item(), name='train_loss')
+    visualizer.image(images, name="train_images")
 
 
 if __name__ == '__main__':

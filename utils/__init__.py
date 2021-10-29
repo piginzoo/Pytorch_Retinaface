@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import os.path as ops
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 def get_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # torch.device代表将torch.Tensor分配到的设备的对象
     return device
+
 
 def init_log(level=logging.DEBUG,
              when="D",
@@ -91,3 +93,11 @@ def load_model(model_path, device, config):
     model.load_state_dict(checkpoint)
     logger.info("加载模型：%s", model_path)
     return model.to(device)
+
+
+def save_model(model, save_dir, epoch, total_steps, loss, f1):
+    now = datetime.datetime.now().strftime("%Y%m%d%H%M")
+    file_name = 'retina_{}_e{}_s{}_l{:.2f}_f{:.2f}.model'.format(now,epoch, total_steps, loss, f1)
+    model_path = os.path.join(save_dir, file_name)
+    torch.save(model.state_dict(), model_path)
+    logger.info("模型保存到：%s", model_path)
