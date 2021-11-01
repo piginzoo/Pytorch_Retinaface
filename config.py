@@ -4,8 +4,6 @@ cfg_mnet = {
     'name': 'mobilenet0.25',
     'min_sizes': [[16, 32], [64, 128], [256, 512]],
     'steps': [8, 16, 32],
-    'variance': [0.1, 0.2],
-    'clip': False,
     'batch_size': 32,
     'image_size': 640,
     'return_layers': {'stage1': 1, 'stage2': 2, 'stage3': 3},
@@ -17,8 +15,6 @@ cfg_re50 = {
     'name': 'Resnet50',
     'min_sizes': [[16, 32], [64, 128], [256, 512]],
     'steps': [8, 16, 32],
-    'variance': [0.1, 0.2],
-    'clip': False,
     'batch_size': 24,
     'image_size': 840,
     'return_layers': {'layer2': 1, 'layer3': 2, 'layer4': 3},
@@ -40,7 +36,8 @@ common_dict = {
     'network': 'resnet50',
     'num_workers': 4,
     'early_stop': 20,
-    'max_epochs': 100
+    'max_epochs': 100,
+    'variance': [0.1, 0.2]
 }
 
 from collections import namedtuple

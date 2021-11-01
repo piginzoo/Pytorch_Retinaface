@@ -64,7 +64,8 @@ if __name__ == '__main__':
         [1, 0, 0, 0, 1, 0, 1, 1]])
     preds = np.zeros((5, 5))  # bbox[5个框，5个值(x1,y1,x2,y2,prob)]
     preds[:, 4] = 1  # prob都设成1
-    iou_matrix = eval.drop_iou_matrix_by_thresh(iou_matrix, preds, thresh=0.5)
+    iou_matrix = eval.drop_iou_matrix_by_thresh(iou_matrix, preds,0.5)
+    logger.debug("\r %r",iou_matrix)
     precision, recall, f1, tp = eval.calc_precision_recall(iou_matrix)
     assert precision == 0.8, precision  # 1/5
     assert recall == 0.875, recall  # 1/8

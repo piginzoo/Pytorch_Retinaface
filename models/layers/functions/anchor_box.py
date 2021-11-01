@@ -13,7 +13,6 @@ class AnchorBox(object):
         super(AnchorBox, self).__init__()
         self.min_sizes = cfg['min_sizes']  # 'min_sizes': [[16, 32], [64, 128], [256, 512]],
         self.steps = cfg['steps']  # 'steps': [8, 16, 32] <-- 原图缩放的大小
-        self.clip = cfg['clip']  # 'clip': False
         self.image_size = image_size
 
         # [[105,105],[53,53],[27,27]]
@@ -45,6 +44,7 @@ class AnchorBox(object):
 
         # back to torch land
         output = torch.Tensor(anchors).view(-1, 4)
-        if self.clip:
-            output.clamp_(max=1, min=0)
+        # 我给去掉了，默认是false，干嘛要处理？！
+        # if self.clip:
+        #     output.clamp_(max=1, min=0)
         return output

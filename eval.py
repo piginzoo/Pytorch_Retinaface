@@ -28,7 +28,7 @@ import logging
 import numpy
 import numpy as np
 import pyximport
-
+pyximport.install(setup_args={"include_dirs": numpy.get_include()}, reload_support=True)
 from utils.box import box_overlaps
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,8 @@ def calc_iou_matrix(pred, gt, iou_thresh=0.7, xywh=True):
     xywh: 是否坐标格式是[x,y,w,h]，如果是，需要换成[x1,y1,x2,y2]格式
 
     """
-
+    pred = pred.astype(np.int32)
+    gt = gt.astype(np.int32)
     _pred = pred.copy()
     _gt = gt.copy()
     if xywh:
@@ -63,7 +64,7 @@ def calc_iou_matrix(pred, gt, iou_thresh=0.7, xywh=True):
     - query_boxes: (K, 4) ndarray of float
     出参：overlaps: (N, K) ndarray of overlap between boxes and query_boxes,是一个矩阵，每个元素是两个框的IOU
     """
-    pyximport.install(setup_args={"include_dirs": numpy.get_include()}, reload_support=True)
+    import pdb; pdb.set_trace()
     overlaps = box_overlaps.bbox_overlaps(_pred[:, :4], _gt)
     # logger.debug("三方库算出的重叠矩阵：\r %r",overlaps)
     logger.debug("三方库算出的重叠矩阵：%r [Pred,GT]", overlaps.shape)
@@ -134,7 +135,7 @@ def calc_precision_recall(iou_matrix):
     #              (iou_matrix.sum(axis=1) > 0).sum() / iou_matrix.shape[0])
     TruePositive_Pred = (iou_matrix.sum(axis=1) > 0).sum()
     TruePositive_GT = (iou_matrix.sum(axis=0) > 0).sum()
-    assert TruePositive_Pred == TruePositive_GT, "Pred:" + TruePositive_Pred + "/GT:" + TruePositive_GT
+    assert TruePositive_Pred == TruePositive_GT, "Pred:" + str(TruePositive_Pred) + "/GT:" + str(TruePositive_GT)
 
     precision = TruePositive_Pred / iou_matrix.shape[0]
     recall = TruePositive_GT / iou_matrix.shape[1]

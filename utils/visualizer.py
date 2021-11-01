@@ -45,6 +45,7 @@ class TensorboardVisualizer(object):
         """
         :param images: `[b, h, w, c]`
         """
+        images = np.array(images)
         if type(images) != np.ndarray:
             raise ValueError("图像必须为numpy数组，当前图像为：" + str(type(images)))
         if len(images.shape) == 3:

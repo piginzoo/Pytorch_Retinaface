@@ -31,7 +31,7 @@ def load_labels(label_file, image_dir):
             else:
                 one_person_labels_copy = one_person_labels.copy()
                 labels.append(one_person_labels_copy)
-                one_person_labels_copy.clear()
+                one_person_labels.clear()
             path = line[2:]  # 去掉 #和空格，得到文件名
             path = os.path.join(image_dir, path)  # 得到文件全路径
             if not os.path.exists(path):
@@ -45,7 +45,7 @@ def load_labels(label_file, image_dir):
             # 427 46 141 194 469.688 118.125 0.0 534.281 127.875 0.0 498.938 164.438 0.0 469.688 186.375 0.0 523.312 191.25 0.0 0.9
             line = line.split(' ')
             label = [float(x) for x in line]
-            one_person_labels_copy.append(label)
+            one_person_labels.append(label)
     return labels, image_paths
 
 
@@ -76,7 +76,7 @@ class WiderFaceTrainDataset(data.Dataset):
 
     def __init__(self, train_image_dir, train_label, preproc=None):
         self.preproc = preproc
-        self.imgs_path, self.face_annonation = load_labels(train_label, train_image_dir)
+        self.face_annonation, self.imgs_path = load_labels(train_label, train_image_dir)
 
     def __len__(self):
         return len(self.imgs_path)
@@ -85,7 +85,7 @@ class WiderFaceTrainDataset(data.Dataset):
         """
         是的，证明了我上面的推测，两个数组self.face_annonation，self.imgs_path，分别存在人脸和图片路径
         """
-
+        logger.debug("加载图片：%r", self.imgs_path[index])
         img = cv2.imread(self.imgs_path[index])
         height, width, _ = img.shape
 
@@ -168,7 +168,8 @@ class WiderFaceValDataset(data.Dataset):
     """
 
     def __init__(self, image_dir, label_path):
-        self.imgs_path, self.labels = load_labels(label_path, image_dir)
+        self.labels, self.imgs_path = load_labels(label_path, image_dir)
+        logger.debug("创建数据集[%s],图片[%d]张，标注[%d]条", label_path, len(self.imgs_path), len(self.labels))
 
     def __len__(self):
         return len(self.imgs_path)
@@ -182,16 +183,18 @@ class WiderFaceValDataset(data.Dataset):
         height, width, _ = img.shape
 
         labels = self.labels[index]
-        annotations = np.zeros((0, 3))
+        annotations = np.zeros((1, 4))
         if len(labels) == 0:
             return annotations
 
+        # logger.debug("labels:%r",labels)
         for idx, label in enumerate(labels):
-            annotation = np.zeros((0, 3))  # 长度是4个
+            annotation = np.zeros((1, 4))  # 长度是4个
+            # logger.debug("annotation[0, 0] = label[0] :%r/%r",annotation,label)
             annotation[0, 0] = label[0]  # x1
             annotation[0, 1] = label[1]  # y1
             annotation[0, 2] = label[0] + label[2]  # x2
             annotation[0, 3] = label[1] + label[3]  # y2
             annotations = np.append(annotations, annotation, axis=0)
         faces_info = np.array(annotations)
-        return torch.from_numpy(img), faces_info
+        return img, faces_info

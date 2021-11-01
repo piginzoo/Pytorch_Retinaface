@@ -8,7 +8,6 @@ import torch.utils.data as data
 
 import utils
 from config import CFG
-from models.layers.functions.anchor_box import PriorBox, AnchorBox
 from utils import get_device
 from utils.box_utils import decode, decode_landm
 from utils.data.wider_face import WiderFaceValDataset
@@ -17,28 +16,28 @@ from utils.nms.py_cpu_nms import py_cpu_nms
 logger = logging.getLogger(__name__)
 
 
-def test(model, image_dir, label_path, batch_size, test_batch_num, anchors, num_workers=1):
+def test(model, network_conf, image_dir, label_path, batch_size, test_batch_num, anchors, num_workers=0):
     device = utils.get_device()
 
     dataset = WiderFaceValDataset(image_dir, label_path)
     logger.info("数据集加载完毕：合计 %d 张", len(dataset))
-    data_loader = data.DataLoader(dataset,
-                                  batch_size,
-                                  shuffle=True,
-                                  num_workers=num_workers)
+    data_loader = iter(data.DataLoader(dataset,
+                                       batch_size,
+                                       shuffle=True,
+                                       num_workers=num_workers))
     start = time.time()
     preds = []
     landmarks = []
     gts = []
     for step in range(test_batch_num):
-        # 加载一个批次的训练数据
+        # 加载一个批次的训练数据,!!! 通过DataLoader加载的变量都会自动变成张量Tensor，靠！
         images, labels = next(data_loader)
-        logger.debug("加载了%d张图片, %d个标签s", len(images),len(labels))
-        images = images.to(device)
+
+        logger.debug("加载了%d张图片, %d个标签s", len(images), len(labels))
         labels = [anno.to(device) for anno in labels]
 
-        for image, labels_of_image in zip(images,labels):
-            bbox_scores, landmark = pred(image, model,anchors)
+        for image, labels_of_image in zip(images, labels):
+            bbox_scores, landmark = pred(image, model, anchors, network_conf)
             logger.debug("预测结果：image : %r", image.shape)
             logger.debug("预测结果：bboxes：%r", landmark.shape)
             logger.debug("预测结果：labels：%d", len(labels_of_image))
@@ -47,7 +46,7 @@ def test(model, image_dir, label_path, batch_size, test_batch_num, anchors, num_
             gts.append(labels_of_image)
 
     logger.info("预测完成，%d 张，耗时： %.2f 分钟", batch_size * test_batch_num, (time.time() - start) / 60)
-    return preds,gts
+    return preds, gts
 
 
 def pred(image, model, anchors, network_config):
@@ -58,48 +57,66 @@ def pred(image, model, anchors, network_config):
     预测结果举例: bbox[10, 29126, 4],class [10, 29126, 2], landmark[10, 29126, 10]
     """
     device = get_device()
+    conf_size = network_config['image_size']
+    image_original_size = (image.shape[1], image.shape[0])  # W,H, size一般都是(W,H)，按这个顺序来
+    logger.debug("图像原shape[%r],size[%r],准备 resize => %r", image.shape, image_original_size, conf_size)
 
-    image = cv2.resize(image, None, None, fx=network_config.image_size, fy=network_config.image_size,
-                       interpolation=cv2.INTER_LINEAR)
-    im_height, im_width, _ = image.shape
-    scale = torch.Tensor([image.shape[1], image.shape[0], image.shape[1], image.shape[0]])
-    image -= (104, 117, 123)
-    image = image.transpose(2, 0, 1)
-    image = torch.from_numpy(image).unsqueeze(0)
-    image = image.to(device)
-    scale = scale.to(device)
+    # resize成网络需要的尺寸
+    image = np.array(image)
+    image = cv2.resize(image, (conf_size, conf_size))
+    logger.debug("图像Resize成[%r]", image.shape)
 
+    # 预处理
+    image = image.astype(np.float32)
+    image -= (104, 117, 123)  # TODO，为何要做均值化？
+    images = np.array([image])  # 增加一个维度，网络要求的
+    images = torch.from_numpy(images)
+    images = images.to(device)
+    images = images.permute(0, 3, 1, 2)  # [1,H,W,C] => [1,C,H,W] ,网络要求的顺序
+
+    # 预测
     # bbox[10, 29126, 4],class [10, 29126, 2], landmark[10, 29126, 10]
-    locations, scores, landms = model([image])  # forward pass
+    pred_boxes, scores, landms = model(images)  # forward pass
 
-def post_process(locations, scores, landms, anchors, network_config):
-    device = get_device()
+    # 计算缩放scale，未预测完，还原到原图坐标做准备
+    size_scale = np.array([conf_size / image_original_size[0], conf_size / image_original_size[1]])
 
-    # # 生成备选anchors：[cx, cy, s_kx, s_ky]
-    # anchors = AnchorBox(network_config, image_size=(im_height, im_width)).forward()
-    # anchors = anchors.to(device)
-    # anchors = anchors.data
+    # 后处理
+    pred_boxes_scores, pred_landms = post_process(pred_boxes, scores, landms, anchors, size_scale)
+
+    return pred_boxes_scores, pred_landms
+
+
+def post_process(locations, scores, landms, anchors, size_scale=None):  # size(W,H)
+    """
+    一张图片的后处理
+    :param locations:
+    :param scores:
+    :param landms:
+    :param anchors:
+    :param network_config:
+    :return:
+    """
 
     # 根据预测结果，得到调整后的bboxes
-    boxes = decode(locations.data.squeeze(0), anchors, network_config['variance'])
+    boxes = decode(locations.data.squeeze(0), anchors, CFG.variance)
+
     # 按照缩放大小，调整其坐标
     boxes = boxes.cpu().numpy()
 
-
     # 计算landmarks
     scores = scores.squeeze(0).data.cpu().numpy()[:, 1]
-    landms = decode_landm(landms.data.squeeze(0), anchors, network_config['variance'])
+    landms = decode_landm(landms.data.squeeze(0), anchors, CFG.variance)
     landms = landms.cpu().numpy()
 
-
-    boxes = boxes * scale / network_config.image_size
-    scale1 = torch.Tensor([image.shape[3], image.shape[2],
-                           image.shape[3], image.shape[2],
-                           image.shape[3], image.shape[2],
-                           image.shape[3], image.shape[2],
-                           image.shape[3], image.shape[2]])
-    scale1 = scale1.to(device)
-    landms = landms * scale1 / network_config.image_size
+    # 按照图像恢复大小
+    if size_scale is not None:
+        # boxes: [N,4=x1y1x2y2]
+        boxes[:, 0::2] = boxes[:, 0::2] / size_scale[0]  # W
+        boxes[:, 1::2] = boxes[:, 1::2] / size_scale[1]  # H
+        # landmarks: [N,10] , 奇数/size_scale[0] ，偶数/size_scale[1]
+        landms[:, 0::2] = landms[:, 0::2] / size_scale[0]  # W
+        landms[:, 1::2] = landms[:, 1::2] / size_scale[1]  # H
 
     # ignore low scores, confidence_threshold = 0.02
     # 过滤掉人脸概率小于0.02的框
@@ -122,7 +139,7 @@ def post_process(locations, scores, landms, anchors, network_config):
     # keep = nms(bbox_scores, args.nms_threshold,force_cpu=args.cpu)
     bbox_scores = bbox_scores[keep, :]
     landms = landms[keep]
-    logger.debug("NMS后，剩余人脸框: %d 个", len(bbox_scores))
+    logger.debug("NMS后，剩余人脸框: %d 个, shape:%r", len(bbox_scores), bbox_scores.shape)
 
     # 原代码注释掉了，不过滤NMS后的框了，keep_top_k=750
     # keep top-K faster NMS

@@ -118,7 +118,7 @@ class RetinaFace(nn.Module):
             self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
             self.fc = nn.Linear(512 * block.expansion, num_classes)
             """
-            backbone = models.resnet50(pretrained=cfg['pretrain'])
+            backbone = models.resnet50()
 
         # mobilenet：    'return_layers' :  {'stage1': 1,   'stage2': 2,      'stage3': 3},
         # resnet50：     'return_layers' :  {'layer2': 1,   'layer3': 2,      'layer4': 3},

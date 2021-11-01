@@ -4,7 +4,7 @@ import random
 from utils.box_utils import matrix_iof
 
 
-def _crop(image, boxes, labels, landm, img_dim):
+def _crop(image, boxes, labels, landm, img_size):
     height, width, _ = image.shape
     pad_image_flag = True
 
@@ -61,8 +61,8 @@ def _crop(image, boxes, labels, landm, img_dim):
 
 
 	# make sure that the cropped image contains at least one face > 16 pixel at training image scale
-        b_w_t = (boxes_t[:, 2] - boxes_t[:, 0] + 1) / w * img_dim
-        b_h_t = (boxes_t[:, 3] - boxes_t[:, 1] + 1) / h * img_dim
+        b_w_t = (boxes_t[:, 2] - boxes_t[:, 0] + 1) / w * img_size
+        b_h_t = (boxes_t[:, 3] - boxes_t[:, 1] + 1) / h * img_size
         mask_b = np.minimum(b_w_t, b_h_t) > 0.0
         boxes_t = boxes_t[mask_b]
         labels_t = labels_t[mask_b]
@@ -207,9 +207,12 @@ def _resize_subtract_mean(image, insize, rgb_mean):
 
 
 class preproc(object):
+    """
+    对图像做预处理
+    """
 
-    def __init__(self, img_dim, rgb_means):
-        self.img_dim = img_dim
+    def __init__(self, img_size, rgb_means):
+        self.img_size = img_size
         self.rgb_means = rgb_means
 
     def __call__(self, image, targets):
@@ -219,12 +222,13 @@ class preproc(object):
         labels = targets[:, -1].copy()
         landm = targets[:, 4:-1].copy()
 
-        image_t, boxes_t, labels_t, landm_t, pad_image_flag = _crop(image, boxes, labels, landm, self.img_dim)
+        image_t, boxes_t, labels_t, landm_t, pad_image_flag = _crop(image, boxes, labels, landm, self.img_size)
         image_t = _distort(image_t)
         image_t = _pad_to_square(image_t,self.rgb_means, pad_image_flag)
         image_t, boxes_t, landm_t = _mirror(image_t, boxes_t, landm_t)
         height, width, _ = image_t.shape
-        image_t = _resize_subtract_mean(image_t, self.img_dim, self.rgb_means)
+        image_t = _resize_subtract_mean(image_t, self.img_size, self.rgb_means)
+
         boxes_t[:, 0::2] /= width
         boxes_t[:, 1::2] /= height
 
