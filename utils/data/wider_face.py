@@ -149,9 +149,11 @@ def detection_collate(batch):
     targets = []
     imgs = []
     # logger.debug("batch size:%d", len(batch))
-    for _, sample in enumerate(batch):
+    for i, sample in enumerate(batch):
         img, annonation = sample
         imgs.append(img)
+        import sys
+        logger.debug("图像#%d内存大小：%d",i+1,sys.getsizeof(img))
         annos = torch.from_numpy(annonation).float()
         targets.append(annos)
 
@@ -159,6 +161,7 @@ def detection_collate(batch):
 
     if len(imgs) == 0:
         logger.warning("batch中的图片为0，batch大小为：%d", len(batch))
+
     imgs = np.array(imgs)
     logger.debug("处理完2：Images:%r, Labels:%r", len(imgs), len(targets))
     imgs = torch.from_numpy(imgs).float()
