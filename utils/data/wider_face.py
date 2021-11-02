@@ -92,6 +92,7 @@ class WiderFaceTrainDataset(data.Dataset):
         labels = self.face_annonation[index]
         annotations = np.zeros((0, 15))
         if len(labels) == 0:
+            logger.warning("这张图片不包含任何人脸")
             return annotations
         for idx, label in enumerate(labels):
             annotation = np.zeros((1, 15))  # 长度是15个
@@ -130,6 +131,10 @@ class WiderFaceTrainDataset(data.Dataset):
 def detection_collate(batch):
     """Custom collate fn for dealing with batches of images that have a different
     number of associated object annotations (bounding boxes).
+    WiderFaceTrainDataset返回的是1张图，和，个数不确定的bboxes，
+    现在需要把他们合并到一起，24张图是一批，
+    图片比较容易concat到一起，
+    但是bboxes们数量不定，
 
     Arguments:
         batch: (tuple) A tuple of tensor images and lists of annotations
@@ -148,7 +153,11 @@ def detection_collate(batch):
             elif isinstance(tup, type(np.empty(0))):
                 annos = torch.from_numpy(tup).float()
                 targets.append(annos)
+            else:
+                logger.warning("无法识别的数据类型：%r",type(tup))
 
+    if len(imgs)==0:
+        logger.warning("batch中的图片为0，batch大小为：%d",len(batch))
     return (torch.stack(imgs, 0), targets)
 
 
