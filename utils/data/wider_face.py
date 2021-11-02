@@ -85,7 +85,9 @@ class WiderFaceTrainDataset(data.Dataset):
         """
         是的，证明了我上面的推测，两个数组self.face_annonation，self.imgs_path，分别存在人脸和图片路径
         """
-        logger.debug("加载图片：%r", self.imgs_path[index])
+
+        if not os.path.exists(self.imgs_path[index]):
+            logger.warning("图片不存在：%r", self.imgs_path[index])
         img = cv2.imread(self.imgs_path[index])
         height, width, _ = img.shape
 
