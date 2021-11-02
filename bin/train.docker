@@ -44,7 +44,7 @@ FULL_CMD="
     --name retina_train
     --network host
     --workdir /root/retina
-    arcface.img:v1
+    pytorch.img:v1
     $CMD
 "
 
