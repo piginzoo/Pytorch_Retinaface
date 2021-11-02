@@ -39,7 +39,7 @@ FULL_CMD="
     -it $DAEMON $GPU_OPT
     -e NVIDIA_VISIBLE_DEVICES=$DEVICE $PROXY
     -v $PWD:/root/retina
-    -v /app/data/face/widerface/:/root/retina/train_data
+    -v /app/data/face/widerface/:/root/retina/data
     -v /root/.cache:/root/.cache
     --name retina_train
     --network host
