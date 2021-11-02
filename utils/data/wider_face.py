@@ -149,7 +149,9 @@ def detection_collate(batch):
     targets = []
     imgs = []
     for _, sample in enumerate(batch):
+        logger.debug("11111%r",sample)
         for _, tup in enumerate(sample):
+            logger.debug("22222%r", tup)
             if torch.is_tensor(tup):
                 imgs.append(tup)
             elif isinstance(tup, type(np.empty(0))):
