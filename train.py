@@ -202,10 +202,10 @@ def train(args):
         logger.info("验证结束，Epoch [%d] ，耗时 %.2f 秒", epoch, time.time() - validate_start)
 
         # early_stopper可以帮助存基于acc的best模型
-        if early_stopper.decide(f1, save_model, net, epoch + 1, total_steps, latest_loss, f1):
+        if early_stopper.decide(f1, save_model, net, args.save_folder, epoch + 1, total_steps, latest_loss, f1):
             logger.info("早停导致退出：epoch[%d] f1[%.4f]", epoch + 1, f1)
             break
-    logger.info("训练结束", epoch)
+    logger.info("训练结束，经过 %d 个epoch", epoch)
 
 
 def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug, num_workers):

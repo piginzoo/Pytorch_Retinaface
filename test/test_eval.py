@@ -67,8 +67,8 @@ if __name__ == '__main__':
     iou_matrix = eval.drop_iou_matrix_by_thresh(iou_matrix, preds,0.5)
     logger.debug("\r %r",iou_matrix)
     precision, recall, f1, tp = eval.calc_precision_recall(iou_matrix)
-    assert precision == 0.8, precision  # 1/5
-    assert recall == 0.875, recall  # 1/8
+    assert precision == 0.8, precision  # 4/5
+    assert recall == 0.875, recall  # 7/8
 
     # case2: 测试iou_matrix的计算
     """
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     iou_matrix = eval.calc_iou_matrix(preds, gts, 0.5, xywh=False)
 
     logger.debug("Pred/GT相交矩阵：%r \r %r", iou_matrix.shape, iou_matrix)
-    iou_matrix = eval.drop_iou_matrix_by_thresh(iou_matrix, preds, thresh=0.5)
+    iou_matrix = eval.drop_iou_matrix_by_thresh(iou_matrix, preds, prob_thresh=0.5)
     precision, recall, f1, tp = eval.calc_precision_recall(iou_matrix)
 
     assert precision == (5 / 7), precision
