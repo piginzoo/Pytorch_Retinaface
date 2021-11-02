@@ -17,6 +17,7 @@ then
     --train_label ./data/label.retina/train/label.txt \
     --train_dir ./data/images/train/ \
     --val_label ./data/label.retina/val/label.txt \
+    --val_dir ./data/images/val/ \
     --save_folder model/ 2>&1
 else
     # 这个是用于docker的训练用的entry，CUDA_VISIBLE_DEVICES=0，因为显卡始终是第一块，所以始终为0
@@ -25,9 +26,10 @@ else
     CUDA_VISIBLE_DEVICES=0 \
     python train.py \
     --name retinaface \
-    --mode network resnet50 \
+    --network resnet50 \
     --train_label ./data/label.retina/train/label.txt \
     --train_dir ./data/images/train/ \
     --val_label ./data/label.retina/val/label.txt \
-    --save_folder model>logs/console.log 2>&1
+    --val_dir ./data/images/val/ \
+    --save_folder model/>logs/console.log 2>&1
 fi
