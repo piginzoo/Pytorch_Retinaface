@@ -7,7 +7,6 @@ import os
 import sys
 import time
 
-import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
@@ -226,14 +225,8 @@ def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug)
 
     pred_count = gt_count = TP_count = 0
 
-
     # 处理每张图片
     for preds, gts in zip(all_preds, all_gts):
-
-        # 显存到内存，从计算图摘掉且去梯度，张量转numpy
-        preds = preds.cpu().detach().numpy()
-        gts = gts.cpu().detach().numpy()
-
         logger.debug("预测出 %d 个框", len(preds))
 
         # preds[N,5] : [x1,y1,x2,y2,score]

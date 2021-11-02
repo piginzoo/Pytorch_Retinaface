@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 def test(model, network_conf, image_dir, label_path, batch_size, test_batch_num, anchors, num_workers=0):
-    device = utils.get_device()
 
     dataset = WiderFaceValDataset(image_dir, label_path)
     logger.info("数据集加载完毕：合计 %d 张", len(dataset))
@@ -34,8 +33,8 @@ def test(model, network_conf, image_dir, label_path, batch_size, test_batch_num,
         images, labels = next(data_loader)
 
         logger.debug("加载了%d张图片, %d个标签s", len(images), len(labels))
-        labels = [anno.to(device) for anno in labels]
 
+        # 处理一张图片
         for image, labels_of_image in zip(images, labels):
             bbox_scores, landmark = pred(image, model, anchors, network_conf)
             logger.debug("预测结果：image : %r", image.shape)
@@ -43,7 +42,7 @@ def test(model, network_conf, image_dir, label_path, batch_size, test_batch_num,
             logger.debug("预测结果：labels：%d", len(labels_of_image))
             preds.append(bbox_scores)
             landmarks.append(landmark)
-            gts.append(labels_of_image)
+            gts.append(np.array(labels_of_image))# 从张量=>numpy
 
     logger.info("预测完成，%d 张，耗时： %.2f 分钟", batch_size * test_batch_num, (time.time() - start) / 60)
     return preds, gts
@@ -56,7 +55,6 @@ def pred(image, model, anchors, network_config):
     预测时，会同时得到10张图片的bboxes，但是，处理IOU和F1、AP的时候，需要每张图片单独处理。
     预测结果举例: bbox[10, 29126, 4],class [10, 29126, 2], landmark[10, 29126, 10]
     """
-    device = get_device()
     conf_size = network_config['image_size']
     image_original_size = (image.shape[1], image.shape[0])  # W,H, size一般都是(W,H)，按这个顺序来
     logger.debug("图像原shape[%r],size[%r],准备 resize => %r", image.shape, image_original_size, conf_size)
@@ -71,11 +69,12 @@ def pred(image, model, anchors, network_config):
     image -= (104, 117, 123)  # TODO，为何要做均值化？
     images = np.array([image])  # 增加一个维度，网络要求的
     images = torch.from_numpy(images)
-    images = images.to(device)
     images = images.permute(0, 3, 1, 2)  # [1,H,W,C] => [1,C,H,W] ,网络要求的顺序
 
     # 预测
     # bbox[10, 29126, 4],class [10, 29126, 2], landmark[10, 29126, 10]
+    device = get_device()
+    images = images.to(device)
     pred_boxes, scores, landms = model(images)  # forward pass
 
     # 计算缩放scale，未预测完，还原到原图坐标做准备
@@ -104,8 +103,10 @@ def post_process(locations, scores, landms, anchors, size_scale=None):  # size(W
     # 按照缩放大小，调整其坐标
     boxes = boxes.cpu().numpy()
 
-    # 计算landmarks
+    # 计算scores
     scores = scores.squeeze(0).data.cpu().numpy()[:, 1]
+
+    # 计算landmarks
     landms = decode_landm(landms.data.squeeze(0), anchors, CFG.variance)
     landms = landms.cpu().numpy()
 
