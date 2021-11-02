@@ -36,7 +36,7 @@ fi
 
 FULL_CMD="
     docker run --rm
-    -m 4096M
+    --shm-size 4G
     -it $DAEMON $GPU_OPT
     -e NVIDIA_VISIBLE_DEVICES=$DEVICE $PROXY
     -v $PWD:/root/retina
