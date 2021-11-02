@@ -155,6 +155,8 @@ def detection_collate(batch):
         annos = torch.from_numpy(annonation).float()
         targets.append(annos)
 
+    logger.debug("处理完：Images:%r, Labels:%r", len(imgs), len(targets))
+
     if len(imgs) == 0:
         logger.warning("batch中的图片为0，batch大小为：%d", len(batch))
     imgs = torch.tensor(imgs)
