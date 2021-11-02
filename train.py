@@ -109,11 +109,6 @@ def train(args):
 
     dataset = WiderFaceTrainDataset(train_dir, train_label, preproc(img_size, rgb_mean))
     logger.info("数据集加载完毕：合计 %d 张", len(dataset))
-    data_loader = iter(data.DataLoader(dataset,
-                                       batch_size,
-                                       shuffle=True,
-                                       num_workers=num_workers,
-                                       collate_fn=detection_collate))
     steps_of_epoch = math.ceil(len(dataset) / batch_size)
 
     if args.debug:
@@ -140,6 +135,11 @@ def train(args):
         net.train()
 
         epoch_start = time.time()
+        data_loader = iter(data.DataLoader(dataset,
+                                           batch_size,
+                                           shuffle=True,
+                                           num_workers=num_workers,
+                                           collate_fn=detection_collate))
         for step in range(steps_of_epoch):
 
             logger.info("------------ 开始 第 %d 步 of epoch %d ------------", steps_of_epoch, epoch)
