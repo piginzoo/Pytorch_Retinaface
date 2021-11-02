@@ -124,7 +124,7 @@ class WiderFaceTrainDataset(data.Dataset):
         if self.preproc is not None:
             img, faces_info = self.preproc(img, faces_info)
 
-        return torch.from_numpy(img), faces_info
+        return img, faces_info
 
 
 def detection_collate(batch):

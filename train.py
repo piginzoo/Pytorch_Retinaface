@@ -195,7 +195,7 @@ def train(args):
         validate_start = time.time()
         # 图片目录用的是train_dir，因为图片目录，val和train是共享的
         precision, recall, f1 = validate(net, args.val_dir, args.val_label, network_conf, config.CFG, anchors,
-                                         args.debug, num_workers)
+                                         args.debug)
         visualizer.text(total_steps, precision, name='Precision')
         visualizer.text(total_steps, recall, name='Recall')
         visualizer.text(total_steps, f1, name='F1')
@@ -208,12 +208,15 @@ def train(args):
     logger.info("训练结束，经过 %d 个epoch", epoch)
 
 
-def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug, num_workers):
+def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug):
     batch_size = CFG.val_batch_size
     batch_num = CFG.val_batch_num
+
+    num_workers = 1
     if is_debug:
         batch_size = 1
         batch_num = 1
+        num_workers = 0
 
     logger.debug("............ 开始做validation ............", )
 
@@ -225,17 +228,16 @@ def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug,
 
     # 处理每张图片
     for preds, gts in zip(all_preds, all_gts):
-
         preds = np.array(preds)
         gts = np.array(gts)
 
-        logger.debug("预测出 %d 个框",len(preds))
+        logger.debug("预测出 %d 个框", len(preds))
 
         # preds[N,5] : [x1,y1,x2,y2,score]
         # 只保留>0.5置信度的框
         preds = preds[preds[:, 4] > 0.5]
 
-        logger.debug("过滤剩余 %d 个框(score>0.5)",len(preds))
+        logger.debug("过滤剩余 %d 个框(score>0.5)", len(preds))
 
         iou_matrx = eval.calc_iou_matrix(preds, gts, 0.5)
         p, r, f, TP = eval.calc_precision_recall(iou_matrx)
