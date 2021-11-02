@@ -26,7 +26,6 @@ else
     CUDA_VISIBLE_DEVICES=0 \
     python train.py \
     --name retinaface \
-    --debug \
     --network resnet50 \
     --train_label ./data/label.retina/train/label.txt \
     --train_dir ./data/images/train/ \

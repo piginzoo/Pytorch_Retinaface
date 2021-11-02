@@ -137,6 +137,7 @@ def train(args):
 
     for epoch in range(1, max_epoch + 1):
         logger.info("================ 开始 第 %d 个 epoch ================ ", epoch)
+        net.train()
 
         epoch_start = time.time()
         for step in range(steps_of_epoch):

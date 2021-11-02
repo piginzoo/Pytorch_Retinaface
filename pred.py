@@ -75,6 +75,7 @@ def pred(image, model, anchors, network_config):
     # bbox[10, 29126, 4],class [10, 29126, 2], landmark[10, 29126, 10]
     device = get_device()
     images = images.to(device)
+    model.eval()
     pred_boxes, scores, landms = model(images)  # forward pass
 
     # 计算缩放scale，未预测完，还原到原图坐标做准备
