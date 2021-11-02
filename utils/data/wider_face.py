@@ -148,7 +148,7 @@ def detection_collate(batch):
     """
     targets = []
     imgs = []
-    logger.debug("batch size:%d", len(batch))
+    # logger.debug("batch size:%d", len(batch))
     for _, sample in enumerate(batch):
         img, annonation = sample
         imgs.append(img)
@@ -157,7 +157,9 @@ def detection_collate(batch):
 
     if len(imgs) == 0:
         logger.warning("batch中的图片为0，batch大小为：%d", len(batch))
-    return torch.tensor(imgs), targets
+    imgs = torch.tensor(imgs)
+    logger.debug("返回结果：Images:%r, Labels:%r", imgs.shape,len(targets))
+    return imgs, targets
 
 
 class WiderFaceValDataset(data.Dataset):

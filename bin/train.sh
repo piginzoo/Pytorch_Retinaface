@@ -22,7 +22,7 @@ then
 else
     # 这个是用于docker的训练用的entry，CUDA_VISIBLE_DEVICES=0，因为显卡始终是第一块，所以始终为0
     echo "Docker生产模式: mode=$1"
-    echo "调试模式"
+    echo "生产模式"
     CUDA_VISIBLE_DEVICES=0 \
     python train.py \
     --name retinaface \
