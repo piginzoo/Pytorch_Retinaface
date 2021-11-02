@@ -153,7 +153,7 @@ def detection_collate(batch):
         img, annonation = sample
         imgs.append(img)
         import sys
-        logger.debug("图像#%d内存大小：%d",i+1, sys.getsizeof(img))
+        logger.debug("图像#%d内存大小：%r",i+1, sys.getsizeof(img))
         annos = torch.from_numpy(annonation).float()
         targets.append(annos)
 
