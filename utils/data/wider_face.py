@@ -148,21 +148,16 @@ def detection_collate(batch):
     """
     targets = []
     imgs = []
+    logger.debug("batch size:%d", len(batch))
     for _, sample in enumerate(batch):
-        logger.debug("11111%r",sample)
-        for _, tup in enumerate(sample):
-            logger.debug("22222%r", tup)
-            if torch.is_tensor(tup):
-                imgs.append(tup)
-            elif isinstance(tup, type(np.empty(0))):
-                annos = torch.from_numpy(tup).float()
-                targets.append(annos)
-            else:
-                logger.warning("无法识别的数据类型：%r",type(tup))
+        img, annonation = sample
+        imgs.append(img)
+        annos = torch.from_numpy(annonation).float()
+        targets.append(annos)
 
-    if len(imgs)==0:
-        logger.warning("batch中的图片为0，batch大小为：%d",len(batch))
-    return (torch.stack(imgs, 0), targets)
+    if len(imgs) == 0:
+        logger.warning("batch中的图片为0，batch大小为：%d", len(batch))
+    return torch.tensor(imgs), targets
 
 
 class WiderFaceValDataset(data.Dataset):
