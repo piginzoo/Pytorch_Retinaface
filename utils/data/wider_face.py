@@ -7,37 +7,45 @@ import numpy as np
 import torch
 import torch.utils.data as data
 
+import utils
+
 logger = logging.getLogger(__name__)
 
 
 def load_labels(label_file, image_dir):
+    """
+    标签格式如下：
+    # 0--Parade/0_Parade_marchingband_1_849.jpg
+    449 330 122 149 488.906 373.643 0.0 542.089 376.442 0.0 515.031 412.83 0.0 485.174 425.893 0.0 538.357 431.491 0.0 0.82
+    # 0--Parade/0_Parade_Parade_0_904.jpg
+    361 98 263 339 424.143 251.656 0.0 547.134 232.571 0.0 494.121 325.875 0.0 453.83 368.286 0.0 561.978 342.839 0.0 0.89
+    78 221 7 8 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 0.2
+    """
     if not os.path.exists(label_file):
         logger.error("标签文件不存在")
         exit()
 
     f = open(label_file, 'r')
     lines = f.readlines()
-    isFirst = True
+    parsed_img_path = False  # 是否刚刚解析了图片路径（而不是标签）
 
     labels = []
     image_paths = []
 
-    one_person_labels = []
     for line in lines:
         line = line.rstrip()
         if line.startswith('#'):  # #号是图片文件名 "# 9--Press_Conference/9_Press_Conference_Press_Conference_9_22.jpg"
-            if isFirst is True:
-                isFirst = False
-            else:
-                one_person_labels_copy = one_person_labels.copy()
-                labels.append(one_person_labels_copy)
-                one_person_labels.clear()
+            if parsed_img_path:
+                logger.warning("正在解析图片路径状态，又是这个状态，忽略上张图片:%s", image_paths.pop())
+
             path = line[2:]  # 去掉 #和空格，得到文件名
             path = os.path.join(image_dir, path)  # 得到文件全路径
             if not os.path.exists(path):
-                logger.error("图片不存在：%s", path)
-                continue
+                raise ValueError("图片不存在：" + path)
+
             image_paths.append(path)
+            labels.append([])  # 出入一个空占位
+            parsed_img_path = True
         else:
             # 脸的各种信息：
             # 长度是20: xywh:4 , landmark:10(5x2), 分割的'0.0'：5，置信度：1
@@ -45,10 +53,11 @@ def load_labels(label_file, image_dir):
             # 427 46 141 194 469.688 118.125 0.0 534.281 127.875 0.0 498.938 164.438 0.0 469.688 186.375 0.0 523.312 191.25 0.0 0.9
             line = line.split(' ')
             label = [float(x) for x in line]
-            one_person_labels.append(label)
+            labels[-1].append(label)
+            parsed_img_path = False
 
-    logger.info("加载原始标注[%d]条，图像路径[%d]条",len(labels),len(image_paths))
-    assert len(labels)==len(image_paths), str(len(labels))+"/"+str(len(image_paths))
+    logger.info("加载原始标注[%d]条，图像路径[%d]条", len(labels), len(image_paths))
+    assert len(labels) == len(image_paths), str(len(labels)) + "/" + str(len(image_paths))
     return labels, image_paths
 
 
@@ -218,3 +227,20 @@ class WiderFaceValDataset(data.Dataset):
             annotations = np.append(annotations, annotation, axis=0)
         faces_info = np.array(annotations)
         return img, faces_info
+
+
+# python -m utils.data.wider_face
+if __name__ == '__main__':
+    utils.init_log()
+    labels, image_paths = load_labels(label_file="data/label.retina/train/label.txt",
+                                      image_dir="data/images/train")
+    assert len(labels) == len(image_paths), str(len(labels)) + "/" + str(len(image_paths))
+    for label, image_path in zip(labels,image_paths):
+        print(image_path)
+        if type(label)==list:
+            for l in label:
+                print("\t",l)
+
+    labels, image_paths = load_labels(label_file="data/label.retina/val/label.txt",
+                                      image_dir="data/images/val")
+    assert len(labels) == len(image_paths), str(len(labels)) + "/" + str(len(image_paths))
