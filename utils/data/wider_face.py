@@ -46,6 +46,9 @@ def load_labels(label_file, image_dir):
             line = line.split(' ')
             label = [float(x) for x in line]
             one_person_labels.append(label)
+
+    logger.info("加载原始标注[%d]条，图像路径[%d]条",len(labels),len(image_paths))
+    assert len(labels)==len(image_paths), str(len(labels))+"/"+str(len(image_paths))
     return labels, image_paths
 
 
