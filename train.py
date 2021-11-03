@@ -110,6 +110,11 @@ def train(args):
     dataset = WiderFaceTrainDataset(train_dir, train_label, preproc(img_size, rgb_mean))
     logger.info("数据集加载完毕：合计 %d 张", len(dataset))
     steps_of_epoch = math.ceil(len(dataset) / batch_size)
+    data_loader = data.DataLoader(dataset,
+                                  batch_size,
+                                  shuffle=True,
+                                  num_workers=num_workers,
+                                  collate_fn=detection_collate)
 
     if args.debug:
         steps_of_epoch = 1
@@ -135,17 +140,11 @@ def train(args):
         net.train()
 
         epoch_start = time.time()
-        data_loader = iter(data.DataLoader(dataset,
-                                           batch_size,
-                                           shuffle=True,
-                                           num_workers=num_workers,
-                                           collate_fn=detection_collate))
-        for step in range(steps_of_epoch):
-
+        for i, train_data in enumerate(data_loader):
             logger.info("------------ 开始 第 %d 步 of epoch %d ------------", steps_of_epoch, epoch)
 
             # 加载一个批次的训练数据
-            images, labels = next(data_loader)
+            images, labels = train_data
             images = images.to(device)
             labels = [anno.to(device) for anno in labels]
             logger.debug("加载了%d条数据", len(images))
@@ -169,7 +168,7 @@ def train(args):
 
             # 每隔N个batch，就算一下这个批次的正确率
             if total_steps % print_steps == 0:
-                logger.debug("Epoch/Step: %r/%r, 总Step:%r, loss[bbox/class/landmark]: %.4f,%.4f,%.4f", epoch, step,
+                logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
                              total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
                 preds_of_images, scores_of_images, landms_of_images = net_out
                 # 需要做一个softmax分类
