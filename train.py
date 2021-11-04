@@ -116,7 +116,8 @@ def train(args):
                                   num_workers=num_workers,
                                   collate_fn=detection_collate)
 
-    logger.info("训练集批次：%d 张/批，一个epoch共有 %d 个批次", batch_size, len(data_loader))
+    steps_of_epoch = len(data_loader)
+    logger.info("训练集批次：%d 张/批，一个epoch共有 %d 个批次", batch_size, steps_of_epoch)
 
     # if args.resume_epoch > 0:
     #     total_steps = args.resume_epoch * steps_of_epoch
@@ -138,7 +139,7 @@ def train(args):
 
         epoch_start = time.time()
         for i, train_data in enumerate(data_loader):
-            logger.info("------------ 开始 第 %d 步 of epoch %d ------------", i, epoch)
+            logger.info("------------ 开始 第 %d/%d 步 of epoch %d ------------", i,steps_of_epoch,epoch)
 
             # 加载一个批次的训练数据
             images, labels = train_data
