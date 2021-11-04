@@ -32,12 +32,13 @@ common_dict = {
     'tboard_dir': 'logs/tboard',
     'val_batch_size': 6,
     'val_batch_num': 20,
-    'print_steps': 1000,
+    'print_steps': 200,
     'network': 'resnet50',
     'num_workers': 4,
     'early_stop': 20,
     'max_epochs': 100,
-    'variance': [0.1, 0.2]
+    'variance': [0.1, 0.2],
+    'gpu_mem_log': 'logs/gpu_mem.log'
 }
 
 from collections import namedtuple

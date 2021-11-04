@@ -21,6 +21,7 @@ from models.retinaface import RetinaFace
 from utils import init_log, get_device, save_model, image_utils, box_utils
 from utils.data import WiderFaceTrainDataset, detection_collate, preproc
 from utils.early_stop import EarlyStop
+from utils.gpu_memory import gpu_memory_log
 from utils.visualizer import TensorboardVisualizer
 
 init_log()
@@ -46,6 +47,7 @@ def parse_argumens():
     args = parser.parse_args()
     logger.debug("参数：%r", args)
     return args
+
 
 
 def train(args):
@@ -185,6 +187,8 @@ def train(args):
                     logger.info("Step[%d] loss[%.4f] 比之前 loss[%.4f] 都低，保存模型", epoch, latest_loss, min_loss)
                     min_loss = latest_loss
                     save_model(net, args.save_folder, epoch, total_steps, latest_loss, 0)
+                    
+                gpu_memory_log(config.CFG.gpu_mem_log)
 
         logger.info("Epoch [%d] 结束，耗时 %.2f 分", epoch, (time.time() - epoch_start) / 60)
 

@@ -67,5 +67,7 @@ def gpu_memory_log(gpu_log_file="gpu_mem.log", device=0):
         _write_log(f, write_str)
         write_str = "Total Memory:%f Mb" % float(meminfo.total / 1024 ** 2)
         _write_log(f, write_str)
+        write_str = "------------------------------------------------------------------------"
+        _write_log(f, write_str)
 
     pynvml.nvmlShutdown()
