@@ -1,6 +1,7 @@
 import logging
 import os
 import os.path
+import random
 
 import cv2
 import numpy as np
@@ -181,7 +182,7 @@ def detection_collate(batch):
     return imgs, targets
 
 
-class WiderFaceValDataset(data.Dataset):
+class WiderFaceValDataset(list):
     """
     加载RetinaFace验证(Val)用WiderFace数据集：
 
@@ -197,23 +198,28 @@ class WiderFaceValDataset(data.Dataset):
     """
 
     def __init__(self, image_dir, label_path):
-        self.labels, self.imgs_path = load_labels(label_path, image_dir)
-        logger.debug("创建数据集[%s],图片[%d]张，标注[%d]条", label_path, len(self.imgs_path), len(self.labels))
+        self.labels_images = list(zip(load_labels(label_path, image_dir)))
+        logger.debug("创建数据集[%s],图片/标注[%d]条", label_path, len(self.labels_images))
 
     def __len__(self):
-        return len(self.imgs_path)
+        return len(self.labels_images)
+
+    def shuffle(self):
+        random.shuffle(self.labels_images)
 
     def __getitem__(self, index):
         """
         是的，证明了我上面的推测，两个数组self.face_annonation，self.imgs_path，分别存在人脸和图片路径
         """
 
-        img = cv2.imread(self.imgs_path[index])
+        labels, image_path = self.labels_images[index]
+
+        img = cv2.imread(image_path)
         height, width, _ = img.shape
 
-        labels = self.labels[index]
         annotations = np.zeros((1, 4))
         if len(labels) == 0:
+            logger.warning("图片[%s]的标注为空",image_path)
             return annotations
 
         # logger.debug("labels:%r",labels)
@@ -235,11 +241,11 @@ if __name__ == '__main__':
     labels, image_paths = load_labels(label_file="data/label.retina/train/label.txt",
                                       image_dir="data/images/train")
     assert len(labels) == len(image_paths), str(len(labels)) + "/" + str(len(image_paths))
-    for label, image_path in zip(labels,image_paths):
+    for label, image_path in zip(labels, image_paths):
         print(image_path)
-        if type(label)==list:
+        if type(label) == list:
             for l in label:
-                print("\t",l)
+                print("\t", l)
 
     labels, image_paths = load_labels(label_file="data/label.retina/val/label.txt",
                                       image_dir="data/images/val")

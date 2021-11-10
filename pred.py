@@ -4,9 +4,7 @@ import time
 import cv2
 import numpy as np
 import torch
-import torch.utils.data as data
 
-import utils
 from config import CFG
 from utils import get_device
 from utils.box_utils import decode, decode_landm
@@ -17,32 +15,30 @@ logger = logging.getLogger(__name__)
 
 
 def test(model, network_conf, image_dir, label_path, batch_size, test_batch_num, anchors, num_workers=0):
-
-    dataset = WiderFaceValDataset(image_dir, label_path)
-    logger.info("数据集加载完毕：合计 %d 张", len(dataset))
-    data_loader = iter(data.DataLoader(dataset,
-                                       batch_size,
-                                       shuffle=True,
-                                       num_workers=num_workers))
+    val_dataset = WiderFaceValDataset(image_dir, label_path)
+    logger.info("数据集加载完毕：合计 %d 张", len(val_dataset))
     start = time.time()
+
     preds = []
     landmarks = []
     gts = []
-    for step in range(test_batch_num):
-        # 加载一个批次的训练数据,!!! 通过DataLoader加载的变量都会自动变成张量Tensor，靠！
-        images, labels = next(data_loader)
 
-        logger.debug("加载了%d张图片, %d个标签s", len(images), len(labels))
+    total_num = batch_size * test_batch_num #
 
-        # 处理一张图片
-        for image, labels_of_image in zip(images, labels):
-            bbox_scores, landmark = pred(image, model, anchors, network_conf)
-            logger.debug("预测结果：image : %r", image.shape)
-            logger.debug("预测结果：bboxes：%r", landmark.shape)
-            logger.debug("预测结果：labels：%d", len(labels_of_image))
-            preds.append(bbox_scores)
-            landmarks.append(landmark)
-            gts.append(np.array(labels_of_image))# 从张量=>numpy
+    val_dataset.shuffle()
+    for i, data in enumerate(val_dataset):
+
+        if i>total_num: break
+
+        image, labels_of_image = data
+        logger.debug("加载了%d张图片, 它有%d张人脸", i, len(labels_of_image))
+        bbox_scores, landmark = pred(image, model, anchors, network_conf)
+        logger.debug("预测结果：image : %r", image.shape)
+        logger.debug("预测结果：bboxes：%r", landmark.shape)
+        logger.debug("预测结果：labels：%d", len(labels_of_image))
+        preds.append(bbox_scores)
+        landmarks.append(landmark)
+        gts.append(np.array(labels_of_image))  # 从张量=>numpy
 
     logger.info("预测完成，%d 张，耗时： %.2f 分钟", batch_size * test_batch_num, (time.time() - start) / 60)
     return preds, gts

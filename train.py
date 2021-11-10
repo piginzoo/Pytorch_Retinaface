@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import argparse
 import logging
-import math
 import os
 import sys
 import time
@@ -47,7 +46,6 @@ def parse_argumens():
     args = parser.parse_args()
     logger.debug("参数：%r", args)
     return args
-
 
 
 def train(args):
@@ -102,12 +100,14 @@ def train(args):
     net.train()
     logger.debug('开始加载数据集: 图片目录：%s，标签文件：%s', train_dir, train_label)
 
+    batch_num = sys.maxsize
     if args.debug:
         logger.debug(">>>>>>>>>>>>>>>>>>>>>>>>> 调试模式！！！")
         batch_size = 1
         max_epoch = 1
         num_workers = 0
         print_steps = 1
+        batch_num = 1
 
     dataset = WiderFaceTrainDataset(train_dir, train_label, preproc(img_size, rgb_mean))
     logger.info("数据集加载完毕：合计 %d 张", len(dataset))
@@ -141,7 +141,9 @@ def train(args):
 
         epoch_start = time.time()
         for i, train_data in enumerate(data_loader):
-            logger.info("------------ 开始 第 %d/%d 步 of epoch %d ------------", i,steps_of_epoch,epoch)
+            if i > batch_num: break
+
+            logger.info("------------ 开始 第 %d/%d 步 of epoch %d ------------", i, steps_of_epoch, epoch)
 
             # 加载一个批次的训练数据
             images, labels = train_data
@@ -187,8 +189,8 @@ def train(args):
                     logger.info("Step[%d] loss[%.4f] 比之前 loss[%.4f] 都低，保存模型", epoch, latest_loss, min_loss)
                     min_loss = latest_loss
                     save_model(net, args.save_folder, epoch, total_steps, latest_loss, 0)
-                    
-                gpu_memory_log(config.CFG.gpu_mem_log)
+
+                if device.type == 'cuda': gpu_memory_log(config.CFG.gpu_mem_log)
 
         logger.info("Epoch [%d] 结束，耗时 %.2f 分", epoch, (time.time() - epoch_start) / 60)
 
@@ -216,7 +218,7 @@ def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug)
     num_workers = 1
     if is_debug:
         batch_size = 1
-        batch_num = 1
+        batch_num = 2
         num_workers = 0
 
     logger.debug("............ 开始做validation ............", )
@@ -246,9 +248,9 @@ def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug)
         logger.debug("图片精确率[%.3f],召回率[%.3f],F1[%.3f],预测[%d]框,GT[%d]框,正确[%d]框",
                      p, r, f, iou_matrx.shape[0], iou_matrx.shape[1], TP)
 
-    precision = TP_count / pred_count
-    recall = TP_count / gt_count
-    f1 = 2 * (recall * precision) / (recall + precision)
+    precision = TP_count / (pred_count + 0.000001)
+    recall = TP_count / (gt_count + 0.000001)
+    f1 = 2 * (recall * precision) / (recall + precision + 0.000001)
 
     logger.info("精确率precision:%.3f,召回率recall:%.3f,F1:%.3f", precision, recall, f1)
 
