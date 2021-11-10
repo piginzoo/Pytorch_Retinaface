@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+import gc
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -190,7 +191,12 @@ def train(args):
                     min_loss = latest_loss
                     save_model(net, args.save_folder, epoch, total_steps, latest_loss, 0)
 
-                if device.type == 'cuda': gpu_memory_log(config.CFG.gpu_mem_log)
+                if device.type == 'cuda':
+                    gpu_memory_log(config.CFG.gpu_mem_log)
+                    torch.cuda.empty_cache()
+
+                del loss_l, loss_c, loss_landm, images, labels, loss, net_out
+                gc.collect()
 
         logger.info("Epoch [%d] 结束，耗时 %.2f 分", epoch, (time.time() - epoch_start) / 60)
 
