@@ -146,75 +146,81 @@ def train(args):
 
             logger.info("------------ 开始 第 %d/%d 步 of epoch %d ------------", i, steps_of_epoch, epoch)
 
-            # 加载一个批次的训练数据
-            images, labels = train_data
-            images = images.to(device)
-            labels = [anno.to(device) for anno in labels]
-            logger.debug("加载了%d条数据", len(images))
+            try:
+                # 加载一个批次的训练数据
+                images, labels = train_data
+                images = images.to(device)
+                labels = [anno.to(device) for anno in labels]
+                logger.debug("加载了%d条数据", len(images))
 
-            # 前向运算
-            # out = (bbox[N,4,2], class[N,2], landmark[N,5,2])
-            # 运行日志：完成前向计算: bbox[1, 29126, 4],class [1, 29126, 2], landmark[1, 29126, 10]
-            # 29126怎么来的？很关键！
-            net_out = net(images)
-            logger.debug("完成前向计算:bbox[%r],class[%r],landmark[%s]", net_out[0].shape, net_out[1].shape, net_out[2].shape)
+                # 前向运算
+                # out = (bbox[N,4,2], class[N,2], landmark[N,5,2])
+                # 运行日志：完成前向计算: bbox[1, 29126, 4],class [1, 29126, 2], landmark[1, 29126, 10]
+                # 29126怎么来的？很关键！
+                net_out = net(images)
+                logger.debug("完成前向计算:bbox[%r],class[%r],landmark[%s]", net_out[0].shape, net_out[1].shape, net_out[2].shape)
 
-            # 反向传播
-            optimizer.zero_grad()
-            loss_l, loss_c, loss_landm = multi_box_loss(net_out, anchors, labels)
-            loss = config.CFG.location_weight * loss_l + loss_c + loss_landm
-            loss.backward()
-            logger.debug("完成反向传播计算")
-            optimizer.step()
+                # 反向传播
+                optimizer.zero_grad()
+                loss_l, loss_c, loss_landm = multi_box_loss(net_out, anchors, labels)
+                loss = config.CFG.location_weight * loss_l + loss_c + loss_landm
+                loss.backward()
+                logger.debug("完成反向传播计算")
+                optimizer.step()
 
-            total_steps += 1
+                total_steps += 1
 
-            # 每隔N个batch，就算一下这个批次的正确率
-            if total_steps % print_steps == 0:
-                logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
-                             total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
-                preds_of_images, scores_of_images, landms_of_images = net_out
-                # 需要做一个softmax分类
-                scores_of_images = F.softmax(scores_of_images)
+                # 每隔N个batch，就算一下这个批次的正确率
+                if total_steps % print_steps == 0:
+                    logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
+                                 total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
+                    preds_of_images, scores_of_images, landms_of_images = net_out
+                    # 需要做一个softmax分类
+                    scores_of_images = F.softmax(scores_of_images)
 
-                # 逐张图片处理
-                for image, pred_boxes, scores, pred_landms, gts in \
-                        zip(images, preds_of_images, scores_of_images, landms_of_images, labels):
-                    # 预测后处理
-                    pred_boxes_scores, pred_landms = pred.post_process(pred_boxes, scores, pred_landms, anchors)
-                    # 记录调试信息到tensorboard
-                    train_check(visualizer, image, pred_boxes_scores, pred_landms, gts, loss, epoch, total_steps)
+                    # 逐张图片处理
+                    for image, pred_boxes, scores, pred_landms, gts in \
+                            zip(images, preds_of_images, scores_of_images, landms_of_images, labels):
+                        # 预测后处理
+                        pred_boxes_scores, pred_landms = pred.post_process(pred_boxes, scores, pred_landms, anchors)
+                        # 记录调试信息到tensorboard
+                        train_check(visualizer, image, pred_boxes_scores, pred_landms, gts, loss, epoch, total_steps)
 
-                # 从第3个epoch，才开始记录最小loss的模型，且F1设置为0
-                if epoch > 2 and latest_loss < min_loss:
-                    logger.info("Step[%d] loss[%.4f] 比之前 loss[%.4f] 都低，保存模型", epoch, latest_loss, min_loss)
-                    min_loss = latest_loss
-                    save_model(net, args.save_folder, epoch, total_steps, latest_loss, 0)
+                    # 从第3个epoch，才开始记录最小loss的模型，且F1设置为0
+                    if epoch > 2 and latest_loss < min_loss:
+                        logger.info("Step[%d] loss[%.4f] 比之前 loss[%.4f] 都低，保存模型", epoch, latest_loss, min_loss)
+                        min_loss = latest_loss
+                        save_model(net, args.save_folder, epoch, total_steps, latest_loss, 0)
 
-                if device.type == 'cuda':
-                    gpu_memory_log(config.CFG.gpu_mem_log)
-                    torch.cuda.empty_cache()
+                    if device.type == 'cuda':
+                        gpu_memory_log(config.CFG.gpu_mem_log)
+                        torch.cuda.empty_cache()
 
-            del loss_l, loss_c, loss_landm, images, labels, loss, net_out
-            gc.collect()
+                del loss_l, loss_c, loss_landm, images, labels, loss, net_out
+                gc.collect()
+            except:
+                logger.exception("batch异常")
 
+        try:
+            logger.info("Epoch [%d] 结束，耗时 %.2f 分", epoch, (time.time() - epoch_start) / 60)
 
-        logger.info("Epoch [%d] 结束，耗时 %.2f 分", epoch, (time.time() - epoch_start) / 60)
+            # 做F1的计算，并可视化图片
+            validate_start = time.time()
+            # 图片目录用的是train_dir，因为图片目录，val和train是共享的
+            precision, recall, f1 = validate(net, args.val_dir, args.val_label, network_conf, config.CFG, anchors,
+                                             args.debug)
+            visualizer.text(total_steps, precision, name='Precision')
+            visualizer.text(total_steps, recall, name='Recall')
+            visualizer.text(total_steps, f1, name='F1')
+            logger.info("验证结束，Epoch [%d] ，耗时 %.2f 秒", epoch, time.time() - validate_start)
 
-        # 做F1的计算，并可视化图片
-        validate_start = time.time()
-        # 图片目录用的是train_dir，因为图片目录，val和train是共享的
-        precision, recall, f1 = validate(net, args.val_dir, args.val_label, network_conf, config.CFG, anchors,
-                                         args.debug)
-        visualizer.text(total_steps, precision, name='Precision')
-        visualizer.text(total_steps, recall, name='Recall')
-        visualizer.text(total_steps, f1, name='F1')
-        logger.info("验证结束，Epoch [%d] ，耗时 %.2f 秒", epoch, time.time() - validate_start)
-
-        # early_stopper可以帮助存基于acc的best模型
-        if early_stopper.decide(f1, save_model, net, args.save_folder, epoch + 1, total_steps, latest_loss, f1):
-            logger.info("早停导致退出：epoch[%d] f1[%.4f]", epoch + 1, f1)
-            break
+            # early_stopper可以帮助存基于acc的best模型
+            if early_stopper.decide(f1, save_model, net, args.save_folder, epoch + 1, total_steps, latest_loss, f1):
+                logger.info("早停导致退出：epoch[%d] f1[%.4f]", epoch + 1, f1)
+                break
+        except:
+            logger.exception("Epoch验证异常")
+            
     logger.info("训练结束，经过 %d 个epoch", epoch)
 
 
