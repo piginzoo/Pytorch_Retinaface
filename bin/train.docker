@@ -45,7 +45,7 @@ FULL_CMD="
     --name retina_train
     --network host
     --workdir /root/retina
-    pytorch.img:v1/box_utils.py
+    pytorch.img:v1
     $CMD
 "
 
