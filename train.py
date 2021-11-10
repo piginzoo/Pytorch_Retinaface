@@ -91,7 +91,7 @@ def train(args):
 
     img_size = network_conf['image_size']
     anchor_boxes = AnchorBox(network_conf, image_size=(img_size, img_size))
-    with torch.no_grad():
+    with torch.no_grad(): # torch.no_grad() 是一个上下文管理器，被该语句 wrap 起来的部分将不会track 梯度。
         anchors = anchor_boxes.forward()
         anchors = anchors.to(device)
 
@@ -195,8 +195,9 @@ def train(args):
                     gpu_memory_log(config.CFG.gpu_mem_log)
                     torch.cuda.empty_cache()
 
-                del loss_l, loss_c, loss_landm, images, labels, loss, net_out
-                gc.collect()
+            del loss_l, loss_c, loss_landm, images, labels, loss, net_out
+            gc.collect()
+
 
         logger.info("Epoch [%d] 结束，耗时 %.2f 分", epoch, (time.time() - epoch_start) / 60)
 
