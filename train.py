@@ -193,7 +193,8 @@ def train(args):
                         save_model(net, args.save_folder, epoch, total_steps, latest_loss, 0)
 
                     if device.type == 'cuda':
-                        gpu_memory_log(config.CFG.gpu_mem_log)
+                        # gpu_memory_log(config.CFG.gpu_mem_log)
+                        logger.debug("%r",torch.cuda.memory_summary(device, True))
                         torch.cuda.empty_cache()
 
                 del loss_l, loss_c, loss_landm, images, labels, loss, net_out
@@ -220,7 +221,7 @@ def train(args):
                 break
         except:
             logger.exception("Epoch验证异常")
-            
+
     logger.info("训练结束，经过 %d 个epoch", epoch)
 
 

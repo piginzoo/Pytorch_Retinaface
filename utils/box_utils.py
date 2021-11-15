@@ -45,6 +45,9 @@ def intersect(box_a, box_b):
                        box_b[:, 2:].unsqueeze(0).expand(A, B, 2))
     min_xy = torch.max(box_a[:, :2].unsqueeze(1).expand(A, B, 2),
                        box_b[:, :2].unsqueeze(0).expand(A, B, 2))
+    print(max_xy.shape)
+    print(min_xy.shape)
+    exit()
     inter = torch.clamp((max_xy - min_xy), min=0)
     return inter[:, :, 0] * inter[:, :, 1]
 

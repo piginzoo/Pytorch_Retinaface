@@ -80,6 +80,8 @@ def pred(image, model, anchors, network_config):
     # 后处理
     pred_boxes_scores, pred_landms = post_process(pred_boxes, scores, landms, anchors, size_scale)
 
+    del images,pred_boxes, scores, landms
+
     return pred_boxes_scores, pred_landms
 
 
@@ -97,15 +99,17 @@ def post_process(locations, scores, landms, anchors, size_scale=None):  # size(W
     # 根据预测结果，得到调整后的bboxes
     boxes = decode(locations.data.squeeze(0), anchors, CFG.variance)
 
-    # 按照缩放大小，调整其坐标
-    boxes = boxes.cpu().numpy()
+    # 按照缩放大小，调整其坐标, cpu:gpu搬家到cpu，detach:计算图上摘下来，numpy:转成numpy
+    boxes = boxes.cpu().detach().numpy()
 
     # 计算scores
-    scores = scores.squeeze(0).data.cpu().numpy()[:, 1]
+    scores = scores.squeeze(0).cpu().detach().numpy()[:, 1]
 
     # 计算landmarks
-    landms = decode_landm(landms.data.squeeze(0), anchors, CFG.variance)
-    landms = landms.cpu().numpy()
+    landms = decode_landm(landms.squeeze(0), anchors, CFG.variance)
+    landms = landms.cpu().detach().numpy()
+
+    # 全部转成CPU上的变量，防止显卡OOM
 
     # 按照图像恢复大小
     if size_scale is not None:
