@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models._utils as _utils
-
+import torchvision.models as models
 from models.net import FPN as FPN
 from models.net import MobileNetV1 as MobileNetV1
 from models.net import SSH as SSH
@@ -80,19 +80,21 @@ class RetinaFace(nn.Module):
         super(RetinaFace, self).__init__()
         self.phase = phase
         backbone = None
-        if cfg['name'] == 'mobilenet0.25':
-            backbone = MobileNetV1()
-            if cfg['pretrain']:
-                checkpoint = torch.load("./weights/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
-                from collections import OrderedDict
-                new_state_dict = OrderedDict()
-                for k, v in checkpoint['state_dict'].items():
-                    name = k[7:]  # remove module.
-                    new_state_dict[name] = v
-                # load params
-                backbone.load_state_dict(new_state_dict)
+        if cfg['name'] == 'mobilenetv2':
+            # 我改了，用默认的mobilev2
+            # backbone = MobileNetV1()
+            # if cfg['pretrain']:
+            #     checkpoint = torch.load("./weights/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
+            #     from collections import OrderedDict
+            #     new_state_dict = OrderedDict()
+            #     for k, v in checkpoint['state_dict'].items():
+            #         name = k[7:]  # remove module.
+            #         new_state_dict[name] = v
+            #     # load params
+            #     backbone.load_state_dict(new_state_dict)
+            backbone = models.mobilenet_v2()
         elif cfg['name'] == 'Resnet50':
-            import torchvision.models as models
+
             """
             Resnet50结构：https://s2.ax1x.com/2020/02/23/33V5OH.png
             对应：convX <--->layer{X-1}

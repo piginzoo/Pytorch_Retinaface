@@ -1,7 +1,7 @@
 # config.py
 
 cfg_mnet = {
-    'name': 'mobilenet0.25',
+    'name': 'mobilenetv2',
     'min_sizes': [[16, 32], [64, 128], [256, 512]],
     'steps': [8, 16, 32],
     'batch_size': 32,
@@ -50,6 +50,6 @@ CFG = namedTupleConstructor(**common_dict)
 def network_conf(type):
     if type == "resnet50":
         return cfg_re50
-    if type == "mobilenet":
+    if type == "mobilenetv2":
         return cfg_mnet
     raise ValueError("Unrecognized Type:" + type)

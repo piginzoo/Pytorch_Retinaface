@@ -33,7 +33,7 @@ def parse_argumens():
     parser = argparse.ArgumentParser(description='Retinaface Training')
     parser.add_argument('--name', default='retinaface')
     parser.add_argument('--debug', dest='debug', action='store_true')
-    parser.add_argument('--network', default='resnet'),
+    parser.add_argument('--network', default='mobilenetv2'),
     parser.add_argument('--train_label', default='./data/label.retina/train/label.txt',
                         help='Training dataset directory')
     parser.add_argument('--val_label', default='./data/label.retina/val/label.txt',
@@ -84,7 +84,7 @@ def train(args):
     #         new_state_dict[name] = v
     #     net.load_state_dict(new_state_dict)
 
-    cudnn.benchmark = True
+    cudnn.benchmark = True # https://zhuanlan.zhihu.com/p/73711222
 
     multi_box_loss = MultiBoxLoss(num_classes, 0.35, True, 0, True, 7, 0.35, False)
     multi_box_loss = multi_box_loss.to(device)
@@ -166,6 +166,7 @@ def train(args):
                 loss = config.CFG.location_weight * loss_l + loss_c + loss_landm
                 loss.backward()
                 logger.debug("完成反向传播计算")
+                latest_loss = loss.item()
                 optimizer.step()
 
                 total_steps += 1
@@ -197,7 +198,6 @@ def train(args):
                         logger.debug("%r",torch.cuda.memory_summary(device, True))
                         torch.cuda.empty_cache()
 
-                del loss_l, loss_c, loss_landm, images, labels, loss, net_out
                 gc.collect()
             except:
                 logger.exception("batch异常")
