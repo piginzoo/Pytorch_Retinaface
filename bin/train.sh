@@ -1,5 +1,4 @@
 #!/bin/bash
-Date=$(date +%Y%m%d%H%M%S)
 if [ "$1" = "stop" ]; then
     echo "停止训练"
     ps aux|grep python|grep "name retinaface"| grep -v grep|awk '{print $2}'|xargs -I {} kill -9 {}
@@ -11,7 +10,7 @@ then
     echo "调试模式"
     CUDA_VISIBLE_DEVICES=0 \
     python train.py \
-    --name retinaface_$Date \
+    --name retinaface \
     --debug \
     --network resnet50 \
     --train_label ./data/label.retina/train/label.txt \
@@ -25,7 +24,7 @@ else
     echo "生产模式"
     CUDA_VISIBLE_DEVICES=0 \
     python train.py \
-    --name retinaface_$Date \
+    --name retinaface \
     --network resnet50 \
     --train_label ./data/label.retina/train/label.txt \
     --train_dir ./data/images/train/ \

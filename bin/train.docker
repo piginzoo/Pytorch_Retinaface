@@ -34,6 +34,7 @@ else
     DAEMON="-d"
 fi
 
+Date=$(date +%Y%m%d%H%M%S)
 FULL_CMD="
     docker run --rm
     --shm-size 4G
@@ -42,7 +43,7 @@ FULL_CMD="
     -v $PWD:/root/retina
     -v /app/data/face/widerface/:/root/retina/data
     -v /root/.cache:/root/.cache
-    --name retina_train
+    --name retina_train_$Date
     --network host
     --workdir /root/retina
     pytorch.img:v1
