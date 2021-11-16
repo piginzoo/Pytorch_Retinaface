@@ -172,7 +172,7 @@ def train(args):
                 total_steps += 1
 
                 # 每隔N个batch，就算一下这个批次的正确率
-                if total_steps % print_steps == 0:
+                if total_steps % print_steps == 12345670:
                     logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
                                  total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
                     preds_of_images, scores_of_images, landms_of_images = net_out
@@ -204,7 +204,7 @@ def train(args):
 
         try:
             logger.info("Epoch [%d] 结束，耗时 %.2f 分", epoch, (time.time() - epoch_start) / 60)
-
+            continue
             # 做F1的计算，并可视化图片
             validate_start = time.time()
             # 图片目录用的是train_dir，因为图片目录，val和train是共享的
