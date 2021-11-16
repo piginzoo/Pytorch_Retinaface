@@ -185,7 +185,7 @@ def train(args):
                         # 预测后处理
                         pred_boxes_scores, pred_landms = pred.post_process(pred_boxes, scores, pred_landms, anchors)
                         # 记录调试信息到tensorboard
-                        train_check(visualizer, image, pred_boxes_scores, pred_landms, gts, loss, epoch, total_steps)
+                        train_check(visualizer, image, pred_boxes_scores, pred_landms, gts, latest_loss, epoch, total_steps)
 
                     # 从第3个epoch，才开始记录最小loss的模型，且F1设置为0
                     if epoch > 2 and latest_loss < min_loss:
@@ -204,7 +204,6 @@ def train(args):
 
         try:
             logger.info("Epoch [%d] 结束，耗时 %.2f 分", epoch, (time.time() - epoch_start) / 60)
-            continue
             # 做F1的计算，并可视化图片
             validate_start = time.time()
             # 图片目录用的是train_dir，因为图片目录，val和train是共享的
@@ -288,8 +287,8 @@ def train_check(visualizer, image, pred_boxes_scores, pred_landmarks, gts, loss,
 
     draw_image = image_utils.draw(image, pred_boxes_scores, gt_boxes, pred_landmarks, gt_landmarks)
 
-    logger.info("[可视化] 迭代[%d]steps,loss[%.4f]", total_steps, loss.item())
-    visualizer.text(total_steps, loss.item(), name='train_loss')
+    logger.info("[可视化] 迭代[%d]steps,loss[%.4f]", total_steps, loss)
+    visualizer.text(total_steps, loss, name='train_loss')
     visualizer.image([draw_image], name="train_images")
 
 

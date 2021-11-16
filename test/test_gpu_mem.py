@@ -30,7 +30,25 @@ for t in range(500):
         w1.grad.zero_()
         w2.grad.zero_()
 
-print(loss.item())
+print("正常情况：")
+print(torch.cuda.memory_summary(device, True))
+
+print("empty_cache后：")
+torch.cuda.empty_cache()
+print(torch.cuda.memory_summary(device, True))
+
 gpu_memory_log("logs/gpu_mem.log")
+
+print("分配了一个新的(100,100,100)前：")
+print(torch.cuda.memory_allocated())
+
+a = torch.zeros(100,100,100).cuda()
+print("分配了一个新的(100,100,100)后：")
+print(torch.cuda.memory_allocated())
+
+del a
+torch.cuda.synchronize()
+print("del 删除了(100,100,100)后：")
+print(torch.cuda.memory_allocated())
 
 # python -m test.test_gpu_mem
