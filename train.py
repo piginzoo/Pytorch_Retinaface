@@ -172,7 +172,7 @@ def train(args):
                 total_steps += 1
 
                 # 每隔N个batch，就算一下这个批次的正确率
-                if total_steps % print_steps == 123456789:
+                if total_steps % print_steps == 0:
                     logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
                                  total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
                     preds_of_images, scores_of_images, landms_of_images = net_out
