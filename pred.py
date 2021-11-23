@@ -14,7 +14,8 @@ from utils.nms.py_cpu_nms import py_cpu_nms
 logger = logging.getLogger(__name__)
 
 
-def test(model, network_conf, image_dir, label_path, batch_size, test_batch_num, anchors, num_workers=0):
+def test(model, network_conf, image_dir, label_path, batch_size, test_batch_num, anchors):
+    # 名字叫做Dataset，其实没用torch的Dataset机制，只是个list
     val_dataset = WiderFaceValDataset(image_dir, label_path)
     logger.info("数据集加载完毕：合计 %d 张", len(val_dataset))
     start = time.time()
@@ -23,14 +24,18 @@ def test(model, network_conf, image_dir, label_path, batch_size, test_batch_num,
     landmarks = []
     gts = []
 
-    total_num = batch_size * test_batch_num #
+    """默认配置
+    'val_batch_size': 6,
+    'val_batch_num': 20,    
+    """
+    total_num = batch_size * test_batch_num
 
-    val_dataset.shuffle()
+    val_dataset.shuffle() # 每次开始之前先shuffle
     for i, data in enumerate(val_dataset):
 
         if i>total_num: break
 
-        image, labels_of_image = data
+        image, labels_of_image = data # 一次一张图片，这样不用多张对齐了
         logger.debug("加载了%d张图片, 它有%d张人脸", i, len(labels_of_image))
         bbox_scores, landmark = pred(image, model, anchors, network_conf)
         logger.debug("预测结果：image : %r", image.shape)
@@ -51,11 +56,11 @@ def pred(image, model, anchors, network_config):
     预测时，会同时得到10张图片的bboxes，但是，处理IOU和F1、AP的时候，需要每张图片单独处理。
     预测结果举例: bbox[10, 29126, 4],class [10, 29126, 2], landmark[10, 29126, 10]
     """
+
+    # 先做resize，成，网络要求的size
     conf_size = network_config['image_size']
     image_original_size = (image.shape[1], image.shape[0])  # W,H, size一般都是(W,H)，按这个顺序来
     logger.debug("图像原shape[%r],size[%r],准备 resize => %r", image.shape, image_original_size, conf_size)
-
-    # resize成网络需要的尺寸
     image = np.array(image)
     image = cv2.resize(image, (conf_size, conf_size))
     logger.debug("图像Resize成[%r]", image.shape)
@@ -67,20 +72,18 @@ def pred(image, model, anchors, network_config):
     images = torch.from_numpy(images)
     images = images.permute(0, 3, 1, 2)  # [1,H,W,C] => [1,C,H,W] ,网络要求的顺序
 
-    # 预测
+    # 预测，转成GPU张量，这时模型为eval()模式
     # bbox[10, 29126, 4],class [10, 29126, 2], landmark[10, 29126, 10]
     device = get_device()
     images = images.to(device)
     model.eval()
-    pred_boxes, scores, landms = model(images)  # forward pass
+    pred_boxes, scores, landms = model(images)  # forward pass，仅执行前向运算
 
     # 计算缩放scale，未预测完，还原到原图坐标做准备
     size_scale = np.array([conf_size / image_original_size[0], conf_size / image_original_size[1]])
 
-    # 后处理
+    # 后处理，里面还是gpu，但是出来就是numpy了
     pred_boxes_scores, pred_landms = post_process(pred_boxes, scores, landms, anchors, size_scale)
-
-    del images,pred_boxes, scores, landms
 
     return pred_boxes_scores, pred_landms
 
@@ -100,14 +103,14 @@ def post_process(locations, scores, landms, anchors, size_scale=None):  # size(W
     boxes = decode(locations.data.squeeze(0), anchors, CFG.variance)
 
     # 按照缩放大小，调整其坐标, cpu:gpu搬家到cpu，detach:计算图上摘下来，numpy:转成numpy
-    boxes = boxes.cpu().detach().numpy()
+    boxes = boxes.detach().cpu().numpy()
 
     # 计算scores
-    scores = scores.squeeze(0).cpu().detach().numpy()[:, 1]
+    scores = scores.squeeze(0).detach().cpu().numpy()[:, 1]
 
     # 计算landmarks
     landms = decode_landm(landms.squeeze(0), anchors, CFG.variance)
-    landms = landms.cpu().detach().numpy()
+    landms = landms.detach().cpu().numpy()
 
     # 全部转成CPU上的变量，防止显卡OOM
 

@@ -172,11 +172,11 @@ def train(args):
                 total_steps += 1
 
                 # 每隔N个batch，就算一下这个批次的正确率
-                if total_steps % print_steps == 12345670:
+                if total_steps % print_steps == 123456789:
                     logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
                                  total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
                     preds_of_images, scores_of_images, landms_of_images = net_out
-                    # 需要做一个softmax分类
+                    # 需要做一个softmax分类, train的时候不做softmax
                     scores_of_images = F.softmax(scores_of_images)
 
                     # 逐张图片处理
@@ -195,10 +195,10 @@ def train(args):
 
                     if device.type == 'cuda':
                         # gpu_memory_log(config.CFG.gpu_mem_log)
-                        logger.debug("%r",torch.cuda.memory_summary(device, True))
-                        torch.cuda.empty_cache()
+                        print(torch.cuda.memory_summary(device, True))
+                        # torch.cuda.empty_cache()
 
-                gc.collect()
+                # gc.collect()
             except:
                 logger.exception("batch异常")
 
@@ -228,17 +228,14 @@ def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug)
     batch_size = CFG.val_batch_size
     batch_num = CFG.val_batch_num
 
-    num_workers = 1
     if is_debug:
         batch_size = 1
         batch_num = 2
-        num_workers = 0
 
     logger.debug("............ 开始做validation ............", )
 
     # 加载一大批图片，算出他们的人脸框
-    all_preds, all_gts = pred.test(model, network_conf, image_dir, label_path, batch_size, batch_num, anchors,
-                                   num_workers)
+    all_preds, all_gts = pred.test(model, network_conf, image_dir, label_path, batch_size, batch_num, anchors)
 
     pred_count = gt_count = TP_count = 0
 
@@ -271,12 +268,16 @@ def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug)
 
 
 def train_check(visualizer, image, pred_boxes_scores, pred_landmarks, gts, loss, epoch, total_steps):
+    """
+    做人脸的调试显示
+    """
+
     logger.debug("[调试输出] Epoch[%d]，Steps[%d]，预测pred_box_socre[%r]框，预测landmark[%r], gts[%r]框，",
                  epoch, total_steps, pred_boxes_scores.shape, pred_landmarks.shape, len(gts))
 
     # 从tensor=>numpy(device从cuda=>cpu)
-    gts = gts.cpu().detach().numpy()
-    image = image.cpu().detach().numpy()
+    gts = gts.detach().cpu().numpy()
+    image = image.detach().cpu().numpy()
     logger.debug("画出人脸框: image[%r],pred[%r],gt[%r]", image.shape, pred_boxes_scores.shape, gts.shape)
 
     # GT特殊处理一下训练用的label: [N,15] [4个facebox，5个landmarks，1个置信度]，Pred不用处理，前面已经处理成box_socre和landmark了
