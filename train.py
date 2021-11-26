@@ -204,6 +204,7 @@ def train(args):
                             zip(images_cpu, preds_of_images_cpu, scores_of_images_cpu, landms_of_images_cpu, labels_cpu):
                         # 预测后处理
                         pred_boxes_scores, pred_landms = pred.post_process(pred_boxes, scores, pred_landms, anchors_cpu)
+                        continue
                         # 记录调试信息到tensorboard
                         train_check(visualizer, image, pred_boxes_scores, pred_landms, gts, latest_loss, epoch, total_steps)
 
