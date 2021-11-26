@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+import gc
 import numpy as np
 
 import torch
@@ -187,6 +188,9 @@ def train(args):
                     anchors_copy = cpu(anchors)
                     labels_copy = cpu(labels)
 
+                    gc.collect()
+                    torch.cuda.empty_cache()
+
                     # 逐张图片处理
                     for image, pred_boxes, scores, pred_landms, gts in \
                             zip(images, preds_of_images, scores_of_images, landms_of_images, labels_copy):
@@ -203,7 +207,7 @@ def train(args):
 
                     if device.type == 'cuda':
                         # gpu_memory_log(config.CFG.gpu_mem_log)
-                        print(torch.cuda.memory_summary(device, True))
+                        logger.debug(torch.cuda.memory_summary(device, True))
                         # torch.cuda.empty_cache()
 
                 # gc.collect()
