@@ -186,7 +186,12 @@ def train(args):
                     anchors_cpu = cpu(anchors)
                     labels_cpu = cpu(labels)
 
+                    logger.debug("del 之前")
+                    logger.debug(torch.cuda.memory_summary(device, True))
                     del preds_of_images, scores_of_images, landms_of_images,images
+                    torch.cuda.empty_cache()
+                    logger.debug("del 之后")
+                    logger.debug(torch.cuda.memory_summary(device, True))
 
                     # 需要做一个softmax分类, train的时候不做softmax
                     scores_of_images_cpu = softmax(scores_of_images_cpu)
