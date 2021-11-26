@@ -178,22 +178,18 @@ def train(args):
                 if True:
                     # logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
                     #              total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
-                    net_out = cpu(net_out)
+                    preds_of_images, scores_of_images, landms_of_images = net_out
+                    preds_of_images = cpu(preds_of_images)
+                    scores_of_images = cpu(scores_of_images)
+                    landms_of_images = cpu(landms_of_images)
                     images = cpu(images)
                     anchors_copy = cpu(anchors)
                     labels_copy = cpu(labels)
 
-                    preds_of_images, scores_of_images, landms_of_images = net_out
-
                     # 需要做一个softmax分类, train的时候不做softmax
                     scores_of_images = np.softmax(scores_of_images)
 
-                    # preds_of_images = cpu(preds_of_images)
-                    # scores_of_images = cpu(scores_of_images)
-                    # landms_of_images = cpu(landms_of_images)
-
-                    # gc.collect()
-                    # torch.cuda.empty_cache()
+                    # 完全不用GPU了
 
                     # 逐张图片处理
                     for image, pred_boxes, scores, pred_landms, gts in \
