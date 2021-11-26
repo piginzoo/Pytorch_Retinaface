@@ -179,23 +179,26 @@ def train(args):
                     # logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
                     #              total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
                     preds_of_images, scores_of_images, landms_of_images = net_out
-                    preds_of_images = cpu(preds_of_images)
-                    scores_of_images = cpu(scores_of_images)
-                    landms_of_images = cpu(landms_of_images)
-                    images = cpu(images)
-                    anchors_copy = cpu(anchors)
-                    labels_copy = cpu(labels)
+                    preds_of_images_cpu = cpu(preds_of_images)
+                    scores_of_images_cpu = cpu(scores_of_images)
+                    landms_of_images_cpu = cpu(landms_of_images)
+                    images_cpu = cpu(images)
+                    anchors_cpu = cpu(anchors)
+                    labels_cpu = cpu(labels)
+
+                    del preds_of_images, scores_of_images, landms_of_images,images
 
                     # 需要做一个softmax分类, train的时候不做softmax
-                    scores_of_images = softmax(scores_of_images)
+                    scores_of_images_cpu = softmax(scores_of_images_cpu)
 
                     # 完全不用GPU了
+                    # Pytorch已经可以自动回收我们不用的显存，类似于python的引用机制，当某一内存内的数据不再有任何变量引用时，这部分的内存便会被释放
 
                     # 逐张图片处理
                     for image, pred_boxes, scores, pred_landms, gts in \
-                            zip(images, preds_of_images, scores_of_images, landms_of_images, labels_copy):
+                            zip(images_cpu, preds_of_images_cpu, scores_of_images_cpu, landms_of_images_cpu, labels_cpu):
                         # 预测后处理
-                        pred_boxes_scores, pred_landms = pred.post_process(pred_boxes, scores, pred_landms, anchors_copy)
+                        pred_boxes_scores, pred_landms = pred.post_process(pred_boxes, scores, pred_landms, anchors_cpu)
                         # 记录调试信息到tensorboard
                         train_check(visualizer, image, pred_boxes_scores, pred_landms, gts, latest_loss, epoch, total_steps)
 
