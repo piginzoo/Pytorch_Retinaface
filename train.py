@@ -186,12 +186,12 @@ def train(args):
                     anchors_cpu = cpu(anchors)
                     labels_cpu = cpu(labels)
 
-                    logger.debug("del 之前")
-                    logger.debug(torch.cuda.memory_summary(device, True))
-                    del preds_of_images, scores_of_images, landms_of_images,images
-                    torch.cuda.empty_cache()
-                    logger.debug("del 之后")
-                    logger.debug(torch.cuda.memory_summary(device, True))
+                    # logger.debug("del 之前")
+                    # logger.debug(torch.cuda.memory_summary(device, True))
+                    # del preds_of_images, scores_of_images, landms_of_images,images
+                    # torch.cuda.empty_cache()
+                    # logger.debug("del 之后")
+                    # logger.debug(torch.cuda.memory_summary(device, True))
 
                     # 需要做一个softmax分类, train的时候不做softmax
                     scores_of_images_cpu = softmax(scores_of_images_cpu)
@@ -315,8 +315,8 @@ def train_check(visualizer, image, pred_boxes_scores, pred_landmarks, gts, loss,
     draw_image = image_utils.draw(image, pred_boxes_scores, gt_boxes, pred_landmarks, gt_landmarks)
 
     logger.info("[可视化] 迭代[%d]steps,loss[%.4f]", total_steps, loss)
-    # visualizer.text(total_steps, loss, name='train_loss')
-    # visualizer.image([draw_image], name="train_images")
+    visualizer.text(total_steps, loss, name='train_loss')
+    visualizer.image([draw_image], name="train_images")
 
 
 if __name__ == '__main__':
