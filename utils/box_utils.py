@@ -235,9 +235,12 @@ def decode(loc, anchors, variances):
     'variance': [0.1, 0.2], ？？？为何需要一个variance?!
     """
 
-    boxes = torch.cat((
+    # boxes = torch.cat((
+    #     anchors[:, :2] + loc[:, :2] * variances[0] * anchors[:, 2:],
+    #     anchors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
+    boxes = np.concatenate((
         anchors[:, :2] + loc[:, :2] * variances[0] * anchors[:, 2:],
-        anchors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
+        anchors[:, 2:] * np.exp(loc[:, 2:] * variances[1])), 1)
 
     xywh2xyxy(boxes)
     return boxes
@@ -271,12 +274,20 @@ def decode_landm(pred, anchors, variances):
     Return:
         decoded landm predictions
     """
-    landms = torch.cat((anchors[:, :2] + pred[:, :2] * variances[0] * anchors[:, 2:],
+    # landms = torch.cat((anchors[:, :2] + pred[:, :2] * variances[0] * anchors[:, 2:],
+    #                     anchors[:, :2] + pred[:, 2:4] * variances[0] * anchors[:, 2:],
+    #                     anchors[:, :2] + pred[:, 4:6] * variances[0] * anchors[:, 2:],
+    #                     anchors[:, :2] + pred[:, 6:8] * variances[0] * anchors[:, 2:],
+    #                     anchors[:, :2] + pred[:, 8:10] * variances[0] * anchors[:, 2:],
+    #                     ), dim=1)
+    landms = np.concatenate([
+                        anchors[:, :2] + pred[:, :2] * variances[0] * anchors[:, 2:],
                         anchors[:, :2] + pred[:, 2:4] * variances[0] * anchors[:, 2:],
                         anchors[:, :2] + pred[:, 4:6] * variances[0] * anchors[:, 2:],
                         anchors[:, :2] + pred[:, 6:8] * variances[0] * anchors[:, 2:],
                         anchors[:, :2] + pred[:, 8:10] * variances[0] * anchors[:, 2:],
-                        ), dim=1)
+                ], axis=1)
+
     return landms
 
 

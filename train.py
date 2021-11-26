@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-import gc
+import numpy as np
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -18,7 +18,7 @@ import pred
 from models.layers.functions.anchor_box import AnchorBox
 from models.layers.modules import MultiBoxLoss
 from models.retinaface import RetinaFace
-from utils import init_log, get_device, save_model, image_utils, box_utils
+from utils import init_log, get_device, save_model, image_utils, box_utils, cpu
 from utils.data import WiderFaceTrainDataset, detection_collate, preproc
 from utils.early_stop import EarlyStop
 from utils.gpu_memory import gpu_memory_log
@@ -150,7 +150,6 @@ def train(args):
                 # 加载一个批次的训练数据
                 images, labels = train_data
                 images = images.to(device)
-                labels = [anno.to(device) for anno in labels]
                 logger.debug("加载了%d条数据", len(images))
 
                 # 前向运算
@@ -162,7 +161,8 @@ def train(args):
 
                 # 反向传播
                 optimizer.zero_grad()
-                loss_l, loss_c, loss_landm = multi_box_loss(net_out, anchors, labels)
+                labels_device = [anno.to(device) for anno in labels]
+                loss_l, loss_c, loss_landm = multi_box_loss(net_out, anchors, labels_device)
                 loss = config.CFG.location_weight * loss_l + loss_c + loss_landm
                 loss.backward()
                 logger.debug("完成反向传播计算")
@@ -176,14 +176,22 @@ def train(args):
                     logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
                                  total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
                     preds_of_images, scores_of_images, landms_of_images = net_out
+
                     # 需要做一个softmax分类, train的时候不做softmax
                     scores_of_images = F.softmax(scores_of_images)
 
+                    preds_of_images = cpu(preds_of_images)
+                    scores_of_images = cpu(scores_of_images)
+                    landms_of_images = cpu(landms_of_images)
+                    images = cpu(images)
+                    anchors_copy = cpu(anchors)
+                    labels_copy = cpu(labels)
+
                     # 逐张图片处理
                     for image, pred_boxes, scores, pred_landms, gts in \
-                            zip(images, preds_of_images, scores_of_images, landms_of_images, labels):
+                            zip(images, preds_of_images, scores_of_images, landms_of_images, labels_copy):
                         # 预测后处理
-                        pred_boxes_scores, pred_landms = pred.post_process(pred_boxes, scores, pred_landms, anchors)
+                        pred_boxes_scores, pred_landms = pred.post_process(pred_boxes, scores, pred_landms, anchors_copy)
                         # 记录调试信息到tensorboard
                         train_check(visualizer, image, pred_boxes_scores, pred_landms, gts, latest_loss, epoch, total_steps)
 
@@ -276,8 +284,8 @@ def train_check(visualizer, image, pred_boxes_scores, pred_landmarks, gts, loss,
                  epoch, total_steps, pred_boxes_scores.shape, pred_landmarks.shape, len(gts))
 
     # 从tensor=>numpy(device从cuda=>cpu)
-    gts = gts.detach().cpu().numpy()
-    image = image.detach().cpu().numpy()
+    # gts = gts.detach().cpu().numpy()
+    # image = image.detach().cpu().numpy()
     logger.debug("画出人脸框: image[%r],pred[%r],gt[%r]", image.shape, pred_boxes_scores.shape, gts.shape)
 
     # GT特殊处理一下训练用的label: [N,15] [4个facebox，5个landmarks，1个置信度]，Pred不用处理，前面已经处理成box_socre和landmark了

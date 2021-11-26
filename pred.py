@@ -100,17 +100,21 @@ def post_process(locations, scores, landms, anchors, size_scale=None):  # size(W
     """
 
     # 根据预测结果，得到调整后的bboxes
-    boxes = decode(locations.data.squeeze(0), anchors, CFG.variance)
+    # import pdb;pdb.set_trace()
+    # boxes = decode(locations.data.squeeze(0), anchors, CFG.variance)
+    boxes = decode(locations, anchors, CFG.variance)
 
     # 按照缩放大小，调整其坐标, cpu:gpu搬家到cpu，detach:计算图上摘下来，numpy:转成numpy
-    boxes = boxes.detach().cpu().numpy()
+    # boxes = boxes.detach().cpu().numpy()
 
     # 计算scores
-    scores = scores.squeeze(0).detach().cpu().numpy()[:, 1]
+    # scores = scores.squeeze(0).detach().cpu().numpy()[:, 1]
+    scores = scores[:, 1]
 
     # 计算landmarks
-    landms = decode_landm(landms.squeeze(0), anchors, CFG.variance)
-    landms = landms.detach().cpu().numpy()
+    # landms = decode_landm(landms.squeeze(0), anchors, CFG.variance)
+    # landms = landms.detach().cpu().numpy()
+    landms = decode_landm(landms, anchors, CFG.variance)
 
     # 全部转成CPU上的变量，防止显卡OOM
 

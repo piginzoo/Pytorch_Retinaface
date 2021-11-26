@@ -86,6 +86,11 @@ def load_image(image_path):
     # logger.debug("加载了图片: %s => %r", image_path, image.shape)
     return image
 
+def cpu(tensor):
+    if type(tensor)==list:
+        return [t.detach().cpu().numpy() for t in tensor]
+
+    return tensor.detach().cpu().numpy()
 
 def load_model(model_path, device, config):
     model = Net("face", device, config)
