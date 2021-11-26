@@ -32,7 +32,7 @@ common_dict = {
     'tboard_dir': 'logs/tboard',
     'val_batch_size': 6,
     'val_batch_num': 20,
-    'print_steps': 200,
+    'print_steps': 1000,
     'network': 'resnet50',
     'num_workers': 4,
     'early_stop': 20,

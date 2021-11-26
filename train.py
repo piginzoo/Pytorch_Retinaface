@@ -5,12 +5,10 @@ import logging
 import os
 import sys
 import time
-import gc
-import numpy as np
 
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torch.nn.functional as F
 import torch.utils.data as data
 
 import config
@@ -22,7 +20,6 @@ from models.retinaface import RetinaFace
 from utils import init_log, get_device, save_model, image_utils, box_utils, cpu
 from utils.data import WiderFaceTrainDataset, detection_collate, preproc
 from utils.early_stop import EarlyStop
-from utils.gpu_memory import gpu_memory_log
 from utils.visualizer import TensorboardVisualizer
 
 init_log()
@@ -172,13 +169,11 @@ def train(args):
 
                 total_steps += 1
 
-
-
                 # 每隔N个batch，就算一下这个批次的正确率
                 preds_of_images, scores_of_images, landms_of_images = net_out
-                if True:
-                    # logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
-                    #              total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
+                if total_steps % print_steps == 0:
+                    logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
+                                 total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
                     preds_of_images_cpu = cpu(preds_of_images)
                     scores_of_images_cpu = cpu(scores_of_images)
                     landms_of_images_cpu = cpu(landms_of_images)
