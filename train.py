@@ -187,7 +187,7 @@ def train(args):
                     labels_copy = cpu(labels)
 
                     # 需要做一个softmax分类, train的时候不做softmax
-                    scores_of_images = np.softmax(scores_of_images)
+                    scores_of_images = softmax(scores_of_images)
 
                     # 完全不用GPU了
 
@@ -234,6 +234,11 @@ def train(args):
             logger.exception("Epoch验证异常")
 
     logger.info("训练结束，经过 %d 个epoch", epoch)
+
+
+def softmax(x,axis=2):
+    x = np.exp(x) / np.sum(np.exp(x), axis=axis, keepdims=True)
+    return x
 
 
 def validate(model, image_dir, label_path, network_conf, CFG, anchors, is_debug):
