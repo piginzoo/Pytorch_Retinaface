@@ -175,10 +175,10 @@ def train(args):
 
 
                 # 每隔N个batch，就算一下这个批次的正确率
+                preds_of_images, scores_of_images, landms_of_images = net_out
                 if True:
                     # logger.debug("Step/Epoch: [%r/%r], 总Step:[%r], loss[bbox/class/landmark]: %.4f,%.4f,%.4f", i, epoch,
                     #              total_steps, loss_l.item(), loss_c.item(), loss_landm.item())
-                    preds_of_images, scores_of_images, landms_of_images = net_out
                     preds_of_images_cpu = cpu(preds_of_images)
                     scores_of_images_cpu = cpu(scores_of_images)
                     landms_of_images_cpu = cpu(landms_of_images)
